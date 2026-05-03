@@ -1,3 +1,5 @@
+[English](README.md) | [فارسی](README_fa.md)
+
 # AUT Proxy Bridge (Easy Setup)
 
 **Turn your university internet into a personal VPN.** This project bridges your university connection through a VPS to provide open, unrestricted internet on your phone or other devices. It automatically manages and rotates your student accounts to ensure maximum speed at all times.
