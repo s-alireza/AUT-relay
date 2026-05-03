@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>AUT Proxy Bridge</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+background:linear-gradient(135deg,#0f0c29 0%,#302b63 50%,#24243e 100%);
+min-height:100vh;color:#e0e0e0;padding:16px}
+.hdr{text-align:center;padding:20px 0}
+.hdr h1{font-size:22px;font-weight:700;
+background:linear-gradient(90deg,#00e676,#00bcd4);
+-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.hdr .sub{font-size:13px;color:#666;margin-top:4px}
+.sb{background:rgba(255,255,255,.06);backdrop-filter:blur(12px);
+border:1px solid rgba(255,255,255,.08);border-radius:14px;padding:14px;margin:14px 0}
+.sr{display:flex;justify-content:space-between;align-items:center;padding:5px 0;font-size:13px}
+.sl{color:#888}.sv{color:#fff;font-weight:600}
+.sv.g{color:#00e676}.sv.y{color:#ffab40}
+.ubar{margin:4px 0}
+.ubar-label{display:flex;justify-content:space-between;font-size:11px;color:#888;margin-bottom:3px}
+.ubar-track{height:6px;background:rgba(255,255,255,.08);border-radius:3px;overflow:hidden}
+.ubar-fill{height:100%;border-radius:3px;transition:width .5s ease}
+.ubar-fill.green{background:linear-gradient(90deg,#00e676,#69f0ae)}
+.ubar-fill.yellow{background:linear-gradient(90deg,#ffab40,#ffd54f)}
+.ubar-fill.red{background:linear-gradient(90deg,#ff5252,#ff8a80)}
+.sec{font-size:14px;font-weight:700;color:#888;text-transform:uppercase;
+letter-spacing:1px;margin:20px 0 8px;padding-left:4px}
+.card{background:rgba(255,255,255,.05);backdrop-filter:blur(10px);
+border:1px solid rgba(255,255,255,.08);border-radius:16px;
+padding:16px;margin:10px 0;transition:all .3s;position:relative;overflow:hidden}
+.card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;
+background:transparent;transition:background .3s}
+.card.on{border-color:rgba(0,230,118,.4);box-shadow:0 4px 20px rgba(0,230,118,.12)}
+.card.on::before{background:linear-gradient(90deg,#00e676,#00bcd4)}
+.ct{display:flex;align-items:center;justify-content:space-between}
+.ci{display:flex;align-items:center;gap:12px}
+.cf{font-size:28px;line-height:1}
+.cn{font-size:15px;font-weight:600}
+.cp{font-size:11px;color:#888;margin-top:2px;text-transform:uppercase;letter-spacing:.5px}
+.badge{font-size:11px;padding:4px 10px;border-radius:20px;font-weight:600;text-transform:uppercase}
+.badge.on{background:rgba(0,230,118,.15);color:#00e676}
+.badge.off{background:rgba(255,255,255,.08);color:#888}
+.pbadge{font-size:10px;padding:2px 6px;border-radius:4px;background:rgba(255,255,255,.1);color:#aaa;margin-left:8px}
+.pbtn{background:transparent;border:1px solid rgba(255,255,255,.2);color:#aaa;
+font-size:10px;padding:2px 8px;border-radius:4px;cursor:pointer;transition:all .2s}
+.pbtn:hover{background:rgba(255,255,255,.1);border-color:#fff;color:#fff}
+.btn{display:block;width:100%;margin-top:12px;padding:11px;border:none;
+border-radius:12px;font-size:14px;font-weight:600;cursor:pointer;transition:all .3s}
+.btn.sw{background:linear-gradient(135deg,#667eea,#764ba2);color:#fff}
+.btn.sw:hover{transform:translateY(-1px);box-shadow:0 4px 16px rgba(102,126,234,.4)}
+.btn.cur{background:rgba(0,230,118,.12);color:#00e676;cursor:default}
+.btn:disabled{opacity:.5;cursor:wait}
+.add{display:block;width:100%;padding:14px;margin-top:10px;
+border:2px dashed rgba(255,255,255,.12);border-radius:16px;
+background:transparent;color:#777;font-size:14px;cursor:pointer;transition:all .3s}
+.add:hover{border-color:rgba(255,255,255,.25);color:#aaa}
+.alist{display:flex;flex-wrap:wrap;gap:8px;margin-top:6px}
+.atag{padding:8px 14px;border-radius:12px;font-size:13px;font-weight:600;
+cursor:pointer;transition:all .3s;border:1px solid rgba(255,255,255,.08);
+background:rgba(255,255,255,.04)}
+.atag.aon{background:rgba(0,230,118,.1);border-color:rgba(0,230,118,.3);color:#00e676}
+.atag.aoff{color:#999}
+.atag.aoff:hover{background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.15)}
+.mo{display:none;position:fixed;top:0;left:0;right:0;bottom:0;
+background:rgba(0,0,0,.75);z-index:200;align-items:center;justify-content:center;padding:20px}
+.mo.show{display:flex}
+.md{background:#1a1a2e;border-radius:20px;padding:22px;width:100%;max-width:400px;
+border:1px solid rgba(255,255,255,.1)}
+.md h2{font-size:17px;margin-bottom:14px;color:#fff}
+.md label{display:block;font-size:12px;color:#888;margin:10px 0 4px}
+.md input,.md textarea{width:100%;padding:10px 12px;border-radius:10px;
+border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.06);
+color:#fff;font-size:14px;font-family:inherit}
+.md textarea{height:100px;resize:vertical;font-family:'Courier New',monospace;font-size:12px}
+.ma{display:flex;gap:10px;margin-top:16px}
+.ma button{flex:1;padding:11px;border:none;border-radius:12px;font-size:14px;font-weight:600;cursor:pointer}
+.bs{background:linear-gradient(135deg,#00e676,#00bcd4);color:#000}
+.bc{background:rgba(255,255,255,.08);color:#888}
+.bd{background:rgba(244,67,54,.12);color:#f44336;margin-top:10px;width:100%;
+padding:11px;border:none;border-radius:12px;font-size:13px;font-weight:600;cursor:pointer}
+.toast{position:fixed;bottom:30px;left:50%;
+transform:translateX(-50%) translateY(100px);
+background:rgba(0,230,118,.95);color:#000;padding:12px 24px;
+border-radius:12px;font-weight:600;font-size:14px;
+transition:transform .4s ease;z-index:300}
+.toast.show{transform:translateX(-50%) translateY(0)}
+@keyframes spin{to{transform:rotate(360deg)}}
+.sp{display:inline-block;width:14px;height:14px;
+border:2px solid rgba(255,255,255,.3);border-top-color:#fff;
+border-radius:50%;animation:spin .8s linear infinite;margin-right:6px;vertical-align:middle}
+</style>
+</head>
+<body>
+<div id="login_view" style="display:none; max-width: 400px; margin: 60px auto;">
+<div class="hdr">
+<h1>&#127760; AUT Proxy Bridge</h1>
+<div class="sub">Please log in to manage your server</div>
+</div>
+<div class="md" style="margin-top:20px; box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
+<label>Admin Username</label>
+<input type="text" id="l_user" placeholder="Username">
+<label>Admin Password</label>
+<input type="password" id="l_pass" placeholder="Password" onkeypress="if(event.keyCode===13)doLogin()">
+<button class="bs" style="width:100%; margin-top:20px; padding:12px; border:none; border-radius:12px; font-weight:600; cursor:pointer;" onclick="doLogin()">Log In</button>
+</div>
+</div>
+
+<div id="dashboard_view" style="display:none;">
+<div class="hdr" style="position:relative;">
+<button class="pbtn" onclick="doLogout()" style="position:absolute; top:20px; right:0; font-size:12px; padding:6px 12px;">Logout</button>
+<h1>&#127760; AUT Proxy Bridge</h1>
+<div class="sub">Server Management Console</div>
+</div>
+<div class="sb" id="sbar">
+<div class="sr"><span class="sl">Active Server</span><span class="sv g" id="ss">&#8212;</span></div>
+<div class="sr"><span class="sl">AUT Account</span><span class="sv" id="sa">&#8212;</span></div>
+<div class="sr"><span class="sl">Speed Phase</span><span class="sv" id="sph">&#8212;</span></div>
+<div id="usage_bars"></div>
+</div>
+<div class="sec">&#127760; VPN Servers</div>
+<div id="list"></div>
+<button class="add" onclick="showModal('srv')">+ Add Server (Paste Config Link)</button>
+<div class="sec" style="margin-top:24px">&#127891; AUT Accounts</div>
+<div class="alist" id="aut_list"></div>
+<button class="add" onclick="showModal('aut')" style="margin-top:8px">+ Add AUT Account</button>
+<button class="add" onclick="factoryReset()" style="margin-top:24px; border-color: rgba(244,67,54,.3); color: #f44336;">⚠ Factory Reset</button>
+
+<!-- Server Modal -->
+<div class="mo" id="srvModal">
+<div class="md">
+<h2>Add Server</h2>
+<label>Server Name</label>
+<input type="text" id="iname" placeholder="e.g. US Shadowsocks">
+<label>Flag Emoji</label>
+<input type="text" id="iflag" placeholder="e.g. &#127482;&#127480;">
+<label>Config Link (ss:// or vless:// or vmess://)</label>
+<textarea id="ilink" placeholder="Paste your full config link here..."></textarea>
+<div class="ma">
+<button class="bc" onclick="hideModal('srv')">Cancel</button>
+<button class="bs" onclick="addSrv()">Save</button>
+</div>
+</div>
+</div>
+
+<!-- AUT Account Modal -->
+<div class="mo" id="autModal">
+<div class="md">
+<h2>Add AUT Account</h2>
+<label>Username</label>
+<input type="text" id="auser" placeholder="e.g. 40012345678">
+<label>Password</label>
+<input type="password" id="apass" placeholder="Account password">
+<div class="ma">
+<button class="bc" onclick="hideModal('aut')">Cancel</button>
+<button class="bs" onclick="addAut()">Save</button>
+</div>
+</div>
+</div>
+</div>
+
+<div class="toast" id="toast"></div>
+<script>
+var busy=false;
+var autoLoadTimer=null;
+
+function api(method,path,body,cb){
+var x=new XMLHttpRequest();
+x.open(method,path,true);
+if(body){x.setRequestHeader('Content-Type','application/json')}
+var token=localStorage.getItem('auth_token');
+if(token){x.setRequestHeader('X-Auth-Token',token)}
+x.onreadystatechange=function(){
+if(x.readyState===4){
+if(x.status===401 && path!=='/api/login'){showLogin();return}
+var resp={};try{resp=JSON.parse(x.responseText)}catch(e){}
+cb(resp, x.status)}};
+x.send(body?JSON.stringify(body):null)}
+
+function showLogin(){
+document.getElementById('dashboard_view').style.display='none';
+document.getElementById('login_view').style.display='block';
+if(autoLoadTimer){clearInterval(autoLoadTimer);autoLoadTimer=null;}}
+
+function showDash(){
+document.getElementById('login_view').style.display='none';
+document.getElementById('dashboard_view').style.display='block';
+if(!autoLoadTimer){autoLoadTimer=setInterval(load,5000);}}
+
+function doLogin(){
+var u=document.getElementById('l_user').value;
+var p=document.getElementById('l_pass').value;
+if(!u||!p){toast('Please enter username and password');return;}
+var token=btoa(u+':'+p);
+// Verify with a POST request to bypass any browser cache
+api('POST','/api/login',{token:token},function(d, status){
+    if(status===200){
+        localStorage.setItem('auth_token', token);
+        showDash();
+        load();
+    }else{
+        toast(d.error || 'Invalid credentials');
+    }
+});}
+
+function doLogout(){
+localStorage.removeItem('auth_token');
+document.getElementById('l_user').value='';
+document.getElementById('l_pass').value='';
+showLogin();}
+
+function load(){
+api('GET','/api/status?t=' + new Date().getTime(),null,function(d, status){
+if(status!==200){
+showLogin();
+return;
+}
+showDash();
+if(!d)return;
+var ac=d.servers[d.active_index];
+document.getElementById('ss').textContent=ac?(ac.flag+' '+ac.name):'\u2014';
+document.getElementById('sa').textContent=d.aut_account||'\u2014';
+document.getElementById('sph').textContent=d.aut_phase||'\u2014';
+
+// Usage bars for current account
+var ub='',cu=d.current_usage||{};
+var lim={Daily:3,Weekly:12,Monthly:30,Free:120};
+var vals={Daily:cu.daily_used,Weekly:cu.weekly_used,Monthly:cu.monthly_used,Free:cu.free_used};
+for(var k in lim){
+var u=vals[k]||0,l=lim[k],pct=Math.min(100,(u/l)*100);
+var c=pct<75?'green':(pct<90?'yellow':'red');
+ub+='<div class="ubar"><div class="ubar-label"><span>'+k+'</span><span>'+u.toFixed(1)+'/'+l+' GB</span></div>';
+ub+='<div class="ubar-track"><div class="ubar-fill '+c+'" style="width:'+pct+'%"></div></div></div>'}
+document.getElementById('usage_bars').innerHTML=ub;
+
+// Server cards
+var h='';
+for(var i=0;i<d.servers.length;i++){
+var s=d.servers[i],on=(i===d.active_index);
+var isFree = (s.protocol === 'freedom' || s.name === 'Freedom');
+h+='<div class="card'+(on?' on':'')+'">';
+h+='<div class="ct"><div class="ci">';
+h+='<span class="cf">'+(s.flag||'&#127760;')+'</span>';
+h+='<div><div class="cn">'+s.name+'</div>';
+h+='<div class="cp">'+(s.protocol||'')+(isFree?'':' <button class="pbtn" id="pbtn_'+i+'" onclick="png('+i+')">Ping</button><span id="lat_'+i+'"></span>')+'</div></div></div>';
+h+='<span class="badge '+(on?'on':'off')+'">'+(on?'&#9679; Active':'Standby')+'</span></div>';
+if(on){h+='<button class="btn cur">Currently Active</button>'}
+else{h+='<button class="btn sw" onclick="sw('+i+')"'+(busy?' disabled':'')+'>'+
+(busy?'<span class="sp"></span>Switching...':'Switch to this server')+'</button>'}
+h+='</div>'}
+document.getElementById('list').innerHTML=h;
+
+// AUT account tags
+var at='',aa=d.aut_accounts||[],ci=d.aut_current_idx,pn=d.aut_pending_idx;
+for(var j=0;j<aa.length;j++){
+var aon=(j===ci),ap=(j===pn);
+var cls=aon?'aon':(ap?'aon':'aoff');
+at+='<div class="atag '+cls+'"'+(aon?'':' onclick="autSw('+j+')"')+'>';
+at+=(aon?'\u25cf ':(ap?'\u25b6 ':' '))+aa[j].username+(ap&&!aon?' (pending)':'')+'</div>'}
+document.getElementById('aut_list').innerHTML=at})}
+
+function sw(i){if(busy)return;busy=true;load();
+api('POST','/api/switch/'+i,null,function(d){busy=false;
+if(d.ok){toast('Switched to '+d.name)}else{toast('Error: '+(d.error||'unknown'))}
+load()})}
+
+function autSw(i){if(busy)return;busy=true;load();
+api('POST','/api/aut_switch/'+i,null,function(d){busy=false;
+if(d.ok){toast('Switching to '+d.name+'...')}else{toast('Error: '+(d.error||'unknown'))}
+setTimeout(load,2000)})}
+
+function png(i){
+var b=document.getElementById('pbtn_'+i),l=document.getElementById('lat_'+i);
+if(!b||b.disabled)return;b.disabled=true;b.textContent='...';
+api('GET','/api/ping/'+i,null,function(d){
+b.disabled=false;b.textContent='Ping';
+if(d.ok){l.innerHTML='<span class="pbadge">'+(d.ms<0?'Timeout':d.ms+'ms')+'</span>'}
+else{l.innerHTML='<span class="pbadge">Error</span>'}})}
+
+function showModal(t){document.getElementById(t+'Modal').className='mo show'}
+function hideModal(t){document.getElementById(t+'Modal').className='mo'}
+
+function addSrv(){
+var n=document.getElementById('iname').value;
+var f=document.getElementById('iflag').value;
+var l=document.getElementById('ilink').value;
+if(!n||!l){toast('Fill in name and link');return}
+api('POST','/api/add',{name:n,flag:f,link:l},function(d){
+if(d.ok){toast('Server added!');hideModal('srv');load();
+document.getElementById('iname').value='';document.getElementById('ilink').value=''}
+else{toast('Error: '+(d.error||'parse failed'))}})}
+
+function addAut(){
+var u=document.getElementById('auser').value;
+var p=document.getElementById('apass').value;
+if(!u||!p){toast('Fill in username and password');return}
+api('POST','/api/aut_add',{username:u,password:p},function(d){
+if(d.ok){toast('Account added!');hideModal('aut');load();
+document.getElementById('auser').value='';document.getElementById('apass').value=''}
+else{toast('Error: '+(d.error||'failed'))}})}
+
+function toast(m){var t=document.getElementById('toast');t.textContent=m;
+t.className='toast show';setTimeout(function(){t.className='toast'},3000)}
+
+function factoryReset(){
+    if(!confirm("Are you sure you want to delete all configurations and reset the proxy bridge? You will need to run Start_Server.bat again to set it up.")) return;
+    api('POST','/api/reset',null,function(d){
+        if(d.ok){
+            toast('Reset successful! The server will now shut down.');
+            setTimeout(function(){ window.location.reload(); }, 2000);
+        }else{
+            toast('Error: '+(d.error||'failed'));
+        }
+    });
+}
+
+// Start sequence
+var savedToken = localStorage.getItem('auth_token');
+if(savedToken){ load(true); }else{ showLogin(); }
+</script>
+</body>
+</html>

@@ -1,0 +1,24 @@
+# Application Configs (Sensitive)
+**/config/settings.json
+**/config/accounts.json
+**/config/accounts_usage.json
+**/config/servers.json
+**/config/config.json
+**/config/frpc.toml
+**/config/frpc.ini
+
+# Logs
+**/*.log
+**/out.log
+
+# Python
+**/__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# IDEs
+.idea/
+.vscode/
+*.swp
+*.swo
