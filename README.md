@@ -4,6 +4,9 @@
 
 Turn your university internet into a personal VPN. This project bridges your university connection through a VPS to provide open, unrestricted internet on your phone or other devices. It automatically manages and rotates your student accounts to ensure maximum speed at all times.
 
+> 💡 **The Idea:** By simply leaving a Windows laptop or PC running at the university connected to the local network, you can access the university's unrestricted internet from anywhere. This is a service that the university's IT department should have provided (like Beheshti, IUST, etc.), but since they haven't, you can set it up yourself! This is especially useful for dorm students who cannot physically come to Tehran just to use the university internet.
+> 
+> All you need is an Iranian VPS (which is much more cost-effective than buying a VPN or even Pro internet packages in some cases). You can even team up with friends to leave one computer running and add multiple student accounts (including those from seniors or alumni) to split the costs. Also, make sure to test the V2ray configs you previously used to connect and add them to your client apps. Good luck, future versions are on the way!
 ---
 
 ## 📥 Download
