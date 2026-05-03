@@ -6,6 +6,15 @@
 
 ---
 
+## 📥 دانلود
+
+آخرین نسخه را برای سیستم خود از **[صفحه آخرین نسخه‌ها](https://github.com/s-alireza/AUT-relay/releases/latest)** دریافت کنید:
+
+*   🚀 **[دانلود نسخه ۶۴ بیت (ویندوز ۱۰/۱۱)](https://github.com/s-alireza/AUT-relay/releases/download/v1.0.0/AUT-Relay-v1.0.0-x64.zip)**
+*   📦 **[دانلود نسخه ۳۲ بیت (ویندوز ۷/قدیمی)](https://github.com/s-alireza/AUT-relay/releases/download/v1.0.0/AUT-Relay-v1.0.0-x32.zip)**
+
+---
+
 ## 📋 پیش‌نیازها (قبل از شروع)
 
 1. **یک سرور مجازی (VPS) ایران**: به یک سرور لینوکس (اوبونتو پیشنهاد می‌شود) در ایران نیاز دارید. می‌توانید از سایت آرون‌کلاد تهیه کنید.

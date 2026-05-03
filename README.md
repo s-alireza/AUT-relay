@@ -6,6 +6,15 @@ Turn your university internet into a personal VPN. This project bridges your uni
 
 ---
 
+## 📥 Download
+
+Get the latest version for your system from the **[Releases Page](https://github.com/s-alireza/AUT-relay/releases/latest)**:
+
+*   🚀 **[Download 64-bit (Windows 10/11)](https://github.com/s-alireza/AUT-relay/releases/download/v1.0.0/AUT-Relay-v1.0.0-x64.zip)**
+*   📦 **[Download 32-bit (Windows 7/Old PC)](https://github.com/s-alireza/AUT-relay/releases/download/v1.0.0/AUT-Relay-v1.0.0-x32.zip)**
+
+---
+
 ## 📋 Before You Start (Prerequisites)
 
 1. **An Iranian VPS**: You need a Linux VPS (Ubuntu) located in Iran (you can purchase from ArvanCloud).
