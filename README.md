@@ -1,14 +1,14 @@
-[English](README.md) | [فارسی](README_fa.md)
+<a href="README_fa.md"><img alt="فارسی" src="https://img.shields.io/badge/زبان-فارسی-1abc9c?style=for-the-badge"></a>
 
-# AUT Proxy Bridge (Easy Setup)
+# AUT Relay
 
-**Turn your university internet into a personal VPN.** This project bridges your university connection through a VPS to provide open, unrestricted internet on your phone or other devices. It automatically manages and rotates your student accounts to ensure maximum speed at all times.
+Turn your university internet into a personal VPN. This project bridges your university connection through a VPS to provide open, unrestricted internet on your phone or other devices. It automatically manages and rotates your student accounts to ensure maximum speed at all times.
 
 ---
 
 ## 📋 Before You Start (Prerequisites)
 
-1. **An Iranian VPS**: You need a Linux VPS (Ubuntu/Debian recommended) located in Iran.
+1. **An Iranian VPS**: You need a Linux VPS (Ubuntu) located in Iran (you can purchase from ArvanCloud).
 2. **Python Installed**: You must have Python (3.4 or newer) installed on your Windows PC.
     * *Note: The setup wizard needs Python to run, so install it first!*
 3. **AUT Network**: Your PC must be connected to the Amirkabir University network.
@@ -28,11 +28,13 @@ Try the automatic download first. If it fails due to network restrictions, follo
 **Option 1: Automatic Download**
 
 Try downloading directly from GitHub:
+
 ```bash
 wget -O frp.tar.gz https://github.com/fatedier/frp/releases/download/v0.61.1/frp_0.61.1_linux_amd64.tar.gz
 ```
 
 *If GitHub is blocked*, use the Iranian mirror:
+
 ```bash
 wget -O frp.tar.gz https://scorpian.ir/proxy/asset/fatedier/frp/213672059
 ```
@@ -40,14 +42,16 @@ wget -O frp.tar.gz https://scorpian.ir/proxy/asset/fatedier/frp/213672059
 **Option 2: Manual Download (If automatic fails)**
 
 1. Download the file on your PC using either:
-   - [Official GitHub Link](https://github.com/fatedier/frp/releases/download/v0.61.1/frp_0.61.1_linux_amd64.tar.gz)
-   - [Iranian Mirror Link](https://scorpian.ir/proxy/asset/fatedier/frp/213672059)
+   * [Official GitHub Link](https://github.com/fatedier/frp/releases/download/v0.61.1/frp_0.61.1_linux_amd64.tar.gz)
+   * [Iranian Mirror Link](https://scorpian.ir/proxy/asset/fatedier/frp/213672059)
 2. Upload it to your VPS (rename it to `frp.tar.gz`).
     * **Upload Command (Run on your local PC):**
+
         ```bash
         # Note: Use :~/ to upload to your home folder
         scp C:\Path\To\frp.tar.gz username@YOUR_VPS_IP:~/
         ```
+
     * *Or use a tool like FileZilla or WinSCP.*
 
 **Once the file is on your VPS, run this:**
@@ -113,11 +117,11 @@ If everything looks good, you'll see `active (running)` and port `7000` in the o
 
 ### Step 2: Local PC Setup
 
-1. **Choose Your Release**: 
+1. **Choose Your Release**:
    * If you have a modern PC (Windows 10/11), open the `VLESS_Server_64bit` folder.
    * If you have an older PC (Windows 7/32-bit), open the `VLESS_Server_32bit` folder.
 2. **Launch the Master Controller**: Inside your chosen folder, double-click **`Start_Server.bat`**.
-3. **Web-Based Setup**: On the first run, the script will open your browser to `http://127.0.0.1:3080`. 
+3. **Web-Based Setup**: On the first run, the script will open your browser to `http://127.0.0.1:3080`.
 4. Fill in the required details:
    * **VPS IP Address**
    * **AUT Username & Password**
@@ -144,9 +148,9 @@ You can securely manage your accounts and servers from any browser:
 ### 🔄 Monitoring & Control
 
 * **Unified Logs**: The Master Window shows live status updates with color-coded prefixes:
-    * **`[XRAY]` (Blue)**: Network core events.
-    * **`[FRPC]` (Red)**: Tunnel connection status.
-    * **`[AUTH]/[USAGE]`**: Real-time account management logs.
+  * **`[XRAY]` (Blue)**: Network core events.
+  * **`[FRPC]` (Red)**: Tunnel connection status.
+  * **`[AUTH]/[USAGE]`**: Real-time account management logs.
 * **Instant Start**: The startup script now uses dynamic port detection to initialize all services in milliseconds.
 * **Auto-Rotation**: The system automatically switches between your student accounts to give you the best speed (Daily -> Weekly -> Monthly -> Free). No manual work needed!
 
