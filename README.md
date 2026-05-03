@@ -1,4 +1,4 @@
-<a href="README_fa.md"><img alt="فارسی" src="https://img.shields.io/badge/زبان-فارسی-1abc9c?style=for-the-badge"></a>
+[English](README.md) | [فارسی](README_fa.md)
 
 # AUT Relay
 

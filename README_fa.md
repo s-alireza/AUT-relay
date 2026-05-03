@@ -1,4 +1,4 @@
-<a href="README.md"><img alt="English" src="https://img.shields.io/badge/Language-English-1abc9c?style=for-the-badge"></a>
+[English](README.md) | [فارسی](README_fa.md)
 
 # رله AUT
 
