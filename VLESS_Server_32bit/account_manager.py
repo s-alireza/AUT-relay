@@ -70,6 +70,11 @@ def stream_subprocess(proc, prefix, color, mgr=None):
             log(prefix, "Waiting for correct VPS configuration (Token mismatch)...", color)
             continue
 
+        # FILTER: Suppress noisy deprecation warnings from Xray core
+        is_deprecated_noise = any(x in l.lower() for x in ["deprecated", "not recommended", "migrate to"])
+        if is_deprecated_noise:
+            continue
+
         if "LOGIN TO SERVER SUCCESS" in l_up:
             if mgr: mgr.set_tunnel_status("Connected")
             log(prefix, "Tunnel Established Successfully!", C_GRN)
@@ -333,7 +338,8 @@ class AUTPortal:
             usage = self._parse_usage(html)
             for i, acc in enumerate(accounts):
                 username = acc.get("username", "")
-                if username and username in html:
+                # Context-aware match: look for username inside quotes, tags, or surrounded by whitespace
+                if username and re.search(r'[\"\'\s>]{0}[\"\'\s<]'.format(re.escape(username)), html):
                     return i, usage
             return None, usage
         except Exception:
@@ -459,11 +465,11 @@ class AccountRotator:
             best_used  = float("inf")
 
             for i in range(len(self.accounts)):
-                if i == self.current_index:
-                    continue          # Skip current (already deemed ineligible)
+                # Only skip if it's the exact same account AND phase (already exhausted)
+                if i == self.current_index and phase == self.current_phase:
+                    continue
 
                 usage = self.known_usage.get(i)
-
                 if self._eligible(usage, phase):
                     # Prefer the account with the least usage in this tier
                     used = (usage.get(phase_keys[phase]) or 0) if usage else 0
@@ -472,19 +478,13 @@ class AccountRotator:
                         best_idx  = i
 
             if best_idx is not None:
+                is_same = (best_idx == self.current_index)
                 self.current_index = best_idx
                 self.current_phase = phase
-                log("OK", "AUT Switched: {0} ({1})".format(self.current_account["username"], phase))
-                return self.current_account
-
-        # No other account found — check if current account can be used in a higher phase
-        usage = self.known_usage.get(self.current_index)
-        for phase in self.PHASE_ORDER:
-            if phase == self.current_phase:
-                continue
-            if self._eligible(usage, phase):
-                self.current_phase = phase
-                log("INFO", "AUT Escalated: {0} -> {1}".format(self.current_account["username"], phase))
+                if is_same:
+                    log("INFO", "AUT Escalated: {0} -> {1}".format(self.current_account["username"], phase))
+                else:
+                    log("OK", "AUT Switched: {0} ({1})".format(self.current_account["username"], phase))
                 return self.current_account
 
         log("ERROR", "ALL accounts have exhausted ALL tiers! No bandwidth remaining.")
@@ -527,8 +527,6 @@ def main():
     log_startup_summary(url, len(accounts), interval)
 
     skip_next_usage_log = False
-
-    usage_store = load_usage_store()
 
     portal = AUTPortal(url)
     rotator = AccountRotator(accounts, thresholds)
