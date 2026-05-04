@@ -499,6 +499,8 @@ def main():
     url = config.get("portal_url", "https://internet.aut.ac.ir")
     log_startup_summary(url, len(accounts), interval)
 
+    skip_next_usage_log = False
+
     usage_store = load_usage_store()
 
     portal = AUTPortal(url)
