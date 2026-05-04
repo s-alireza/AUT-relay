@@ -36,6 +36,9 @@ C_BLU = "\033[94m"
 C_CYA = "\033[96m"
 C_RST = "\033[0m"
 
+def log(level, message, color=""):
+    """Simple timestamped logger with optional color."""
+    timestamp = datetime.now().strftime("%H:%M:%S")
     print("[{0}] {1}{2}{3}  {4}".format(timestamp, color, level.ljust(5), C_RST if color else "", message))
     
 # Global registry for safe process cleanup

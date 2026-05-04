@@ -700,9 +700,5 @@ def start_web_server(mgr, port=3080):
         raise e
 
 if __name__ == "__main__":
-    print("\n" + "="*50)
-    print("ERROR: server_manager.py cannot be run directly.")
-    print("Please run account_manager.py (or Start_Server.bat)")
-    print("to start the full AUT Proxy Bridge system.")
-    print("="*50 + "\n")
-    sys.exit(1)
+    mgr = ServerManager()
+    start_web_server(mgr, mgr.port)
