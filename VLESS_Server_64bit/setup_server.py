@@ -277,6 +277,7 @@ def do_setup(data):
     return vless_link, settings["frp_token"], "\n".join(frps_cfg)
 
 server_instance = None
+setup_done = False
 
 class SetupHandler(BaseHTTPRequestHandler):
     def log_message(self, fmt, *args):
@@ -306,6 +307,30 @@ class SetupHandler(BaseHTTPRequestHandler):
 
     def do_GET(self):
         if self.path == "/":
+            if setup_done:
+                # Show a transitioning page if setup is already complete
+                self._send_html("""
+                <html>
+                <head>
+                    <meta http-equiv="refresh" content="3;url=/">
+                    <style>
+                        body { background: #0f172a; color: white; font-family: sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; }
+                        .box { text-align: center; background: rgba(255,255,255,0.05); padding: 40px; border-radius: 20px; border: 1px solid rgba(255,255,255,0.1); }
+                        .loader { border: 3px solid rgba(255,255,255,0.1); border-top: 3px solid #3b82f6; border-radius: 50%; width: 30px; height: 30px; animation: spin 1s linear infinite; margin: 0 auto 20px; }
+                        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+                    </style>
+                </head>
+                <body>
+                    <div class="box">
+                        <div class="loader"></div>
+                        <h2>🚀 Finalizing Setup...</h2>
+                        <p>Transitioning to the Dashboard. Please wait a moment.</p>
+                    </div>
+                </body>
+                </html>
+                """)
+                return
+
             html_path = os.path.join(UI_DIR, "setup.html")
             try:
                 with open(html_path, "r", encoding="utf-8") as f:
@@ -327,8 +352,10 @@ class SetupHandler(BaseHTTPRequestHandler):
                 
                 # Shutdown the server slightly after responding so the client gets the success message
                 def shutdown():
+                    global setup_done
+                    setup_done = True
                     print("\n  Setup completed successfully. Transitioning to dashboard...")
-                    time.sleep(1)
+                    time.sleep(2)
                     if server_instance:
                         server_instance.shutdown()
                 threading.Thread(target=shutdown).start()
