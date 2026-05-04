@@ -9,6 +9,8 @@ import sys
 import uuid as _uuid
 import threading
 import time
+import random
+import string
 try:
     from http.server import HTTPServer, BaseHTTPRequestHandler
 except ImportError:
@@ -22,7 +24,7 @@ UI_DIR = os.path.join(BASE_DIR, "ui")
 FRPC_FORMAT = "ini"  # "toml" for 64-bit, "ini" for 32-bit
 
 DEFAULTS = {
-    "frp_server_port": 7000,
+    "frp_server_port": 443,
     "frp_protocol": "tcp",
     "vless_ws_path": "/tunnel",
     "vless_port": 4433,
@@ -43,6 +45,15 @@ DEFAULTS = {
     }
 }
 
+def generate_token(length=32):
+    """Generate a random alphanumeric token for FRP authentication."""
+    try:
+        rng = random.SystemRandom()
+    except Exception:
+        rng = random
+    chars = string.ascii_letters + string.digits
+    return ''.join(rng.choice(chars) for _ in range(length))
+
 def write_json(path, data):
     with open(path, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=2, ensure_ascii=False)
@@ -55,6 +66,11 @@ def generate_frpc(settings):
             'serverAddr = "{0}"'.format(settings["vps_ip"]),
             'serverPort = {0}'.format(settings["frp_server_port"]),
             'transport.protocol = "{0}"'.format(settings["frp_protocol"]),
+            'auth.method = "token"',
+            'auth.token = "{0}"'.format(settings.get("frp_token", "")),
+            'transport.tls.enable = true',
+            'transport.heartbeatInterval = 10',
+            'transport.heartbeatTimeout = 30',
             'loginFailExit = false',
             '',
             '[[proxies]]',
@@ -86,7 +102,7 @@ def generate_frpc(settings):
             'remotePort = {0}'.format(settings["remote_socks_port"]),
             '',
         ]
-        with open(path, "w") as f:
+        with open(path, "w", encoding="utf-8") as f:
             f.write("\n".join(lines))
     else:
         path = os.path.join(CONFIG_DIR, "frpc.ini")
@@ -95,6 +111,14 @@ def generate_frpc(settings):
             'server_addr = {0}'.format(settings["vps_ip"]),
             'server_port = {0}'.format(settings["frp_server_port"]),
             'protocol = {0}'.format(settings["frp_protocol"]),
+            'authenticate_heartbeats = true',
+            'authenticate_new_work_conns = true',
+            'token = {0}'.format(settings.get("frp_token", "")),
+            'tls_enable = true',
+            'tls_server_name = www.google.com',
+            'tls_disable_custom_tls_first_byte = true',
+            'heartbeat_interval = 10',
+            'heartbeat_timeout = 30',
             'login_fail_exit = false',
             '',
             '[xray_ws]',
@@ -122,7 +146,7 @@ def generate_frpc(settings):
             'remote_port = {0}'.format(settings["remote_socks_port"]),
             '',
         ]
-        with open(path, "w") as f:
+        with open(path, "w", encoding="utf-8") as f:
             f.write("\n".join(lines))
 
 def generate_xray_config(settings):
@@ -198,6 +222,7 @@ def do_setup(data):
     settings = dict(DEFAULTS)
     settings["vps_ip"] = vps_ip
     settings["vless_uuid"] = str(_uuid.uuid4())
+    settings["frp_token"] = generate_token(32)
     settings["dashboard_user"] = dash_user
     settings["dashboard_pass"] = dash_pass
 
@@ -235,6 +260,16 @@ def do_setup(data):
     # 6. FRPC config
     generate_frpc(settings)
 
+    frps_cfg = [
+        '[common]',
+        'bind_port = {0}'.format(settings["frp_server_port"]),
+        'token = {0}'.format(settings["frp_token"]),
+        'tls_enable = true',
+        '',
+        '# Xray VLESS Inbound',
+        '# xray --config config.json'
+    ]
+    
     ws_path_encoded = settings["vless_ws_path"].replace("/", "%2F")
     vless_link = "vless://{0}@{1}:{2}?type=ws&path={3}#AUT-Bridge".format(
         settings["vless_uuid"],
@@ -242,7 +277,7 @@ def do_setup(data):
         settings["remote_xray_port"],
         ws_path_encoded
     )
-    return vless_link
+    return vless_link, settings["frp_token"], "\n".join(frps_cfg)
 
 server_instance = None
 
@@ -252,19 +287,25 @@ class SetupHandler(BaseHTTPRequestHandler):
 
     def _send_json(self, data, code=200):
         body = json.dumps(data).encode("utf-8")
-        self.send_response(code)
-        self.send_header("Content-Type", "application/json")
-        self.send_header("Content-Length", str(len(body)))
-        self.end_headers()
-        self.wfile.write(body)
+        try:
+            self.send_response(code)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+        except Exception:
+            pass
 
     def _send_html(self, html):
         body = html.encode("utf-8")
-        self.send_response(200)
-        self.send_header("Content-Type", "text/html; charset=utf-8")
-        self.send_header("Content-Length", str(len(body)))
-        self.end_headers()
-        self.wfile.write(body)
+        try:
+            self.send_response(200)
+            self.send_header("Content-Type", "text/html; charset=utf-8")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+        except Exception:
+            pass
 
     def do_GET(self):
         if self.path == "/":
@@ -284,14 +325,15 @@ class SetupHandler(BaseHTTPRequestHandler):
                 length = int(self.headers.get("Content-Length", 0))
                 body = self.rfile.read(length).decode("utf-8")
                 data = json.loads(body)
-                vless_link = do_setup(data)
-                self._send_json({"ok": True, "vless_link": vless_link})
+                vless_link, frp_token, frps_toml = do_setup(data)
+                self._send_json({"ok": True, "vless_link": vless_link, "frp_token": frp_token, "frps_toml": frps_toml})
                 
                 # Shutdown the server slightly after responding so the client gets the success message
                 def shutdown():
-                    print("\n  Setup completed successfully. Closing setup server...")
-                    time.sleep(2)
-                    os._exit(0)
+                    print("\n  Setup completed successfully. Transitioning to dashboard...")
+                    time.sleep(1)
+                    if server_instance:
+                        server_instance.shutdown()
                 threading.Thread(target=shutdown).start()
             except Exception as e:
                 self._send_json({"ok": False, "error": str(e)}, 500)
@@ -370,6 +412,22 @@ def main():
         except EOFError:
             choice = "c"
         if choice not in ("r", "reconfigure"):
+            # Check for backward compatibility: inject token if missing
+            try:
+                with open(settings_path, "r", encoding="utf-8") as f:
+                    curr = json.load(f)
+                if "frp_token" not in curr:
+                    print("  Upgrading configuration with security token...")
+                    curr["frp_token"] = generate_token(32)
+                    # Migrate port if it's the old default
+                    if curr.get("frp_server_port") == 7000:
+                        curr["frp_server_port"] = 8443
+                    write_json(settings_path, curr)
+                    generate_frpc(curr)
+                    print("  Upgrade complete. Token added and port migrated to 8443.")
+            except Exception as e:
+                print("  Warning during auto-upgrade: {0}".format(e))
+            
             print("  Cancelled. Your current config is unchanged.")
             sys.exit(0)
         
@@ -384,6 +442,16 @@ def main():
     print()
     print("  Waiting for configuration...")
     server_instance.serve_forever()
+
+def start_setup(mgr=None):
+    """Entry point for account_manager."""
+    global _mgr, server_instance
+    _mgr = mgr
+    port = DEFAULTS["management_port"]
+    server_instance = HTTPServer(("0.0.0.0", port), SetupHandler)
+    print("\n[INFO] Starting Web Setup on port {0}...".format(port))
+    server_instance.serve_forever()
+    print("[INFO] Web Setup finished.")
 
 if __name__ == "__main__":
     main()

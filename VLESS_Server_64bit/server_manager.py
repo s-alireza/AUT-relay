@@ -204,6 +204,8 @@ class ServerManager:
         self.force_switch = -1
         self.wake_event = threading.Event()
         self.last_aut_update = datetime.now().strftime("%H:%M:%S")
+        self.tunnel_status = "Unknown"
+        self.last_tunnel_error = ""
 
         self._read_inbound()
         self.load_servers()
@@ -227,8 +229,10 @@ class ServerManager:
         if current_usage is not None:
             self.current_usage = current_usage
         self.last_aut_update = datetime.now().strftime("%H:%M:%S")
-        # log("OK", "Dashboard state updated: {0} ({1})".format(account, phase))
-        # log("DEBUG", "AUT Status Updated: {0} ({1})".format(account, phase))
+
+    def set_tunnel_status(self, status, error=""):
+        self.tunnel_status = status
+        self.last_tunnel_error = error
 
     def request_aut_switch(self, index):
         self.force_switch = index
@@ -387,7 +391,12 @@ class ServerManager:
         slist = []
         for s in self.servers:
             slist.append({"name": s["name"], "flag": s.get("flag", ""), "protocol": s.get("protocol", s["outbound"].get("protocol", ""))})
-        return {"active_index": self.active_index, "servers": slist}
+        return {
+            "active_index": self.active_index, 
+            "servers": slist,
+            "tunnel_status": self.tunnel_status,
+            "tunnel_error": self.last_tunnel_error
+        }
 
     def _restart_xray(self):
         try:
@@ -525,6 +534,30 @@ class Handler(BaseHTTPRequestHandler):
                 "free_used": cu.get("free_used") or 0,
             }
             self._send_json(status)
+        elif self.path.startswith("/api/vps_config"):
+            # Provide the configuration block for the VPS
+            s = _mgr.settings
+            vless_link = "vless://{0}@{1}:{2}?type=ws&security=none&path={3}#AUT-Relay".format(
+                s.get("vless_uuid", ""), s.get("vps_ip", ""), s.get("remote_xray_port", 8080), 
+                unquote(s.get("vless_ws_path", "/tunnel"))
+            )
+            
+            # Generate the FRPS TOML block
+            frps_cfg = [
+                'bindPort = {0}'.format(s.get("frp_server_port", 443)),
+                'auth.method = "token"',
+                'auth.token = "{0}"'.format(s.get("frp_token", "")),
+                'transport.tls.force = true',
+                '',
+                '# Xray VLESS Inbound',
+                '# xray --config config.json'
+            ]
+            
+            self._send_json({
+                "ok": True,
+                "vless_link": vless_link,
+                "frps_toml": "\n".join(frps_cfg)
+            })
         elif self.path.startswith("/api/ping/"):
             try:
                 idx = int(self.path.split("/")[-1])

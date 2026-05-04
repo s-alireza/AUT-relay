@@ -46,35 +46,60 @@ def log_startup_summary(portal_url, accounts_count, interval):
     log("INFO", "Portal: {0}".format(portal_url))
     log("INFO", "Usage: https://internet.aut.ac.ir/status")
 
-def stream_subprocess(proc, prefix, color):
+def stream_subprocess(proc, prefix, color, mgr=None):
     """Monitor subprocess output and print only critical events to keep the console clean."""
+    last_noise_time = 0
     for line in iter(proc.stdout.readline, b''):
         l = line.decode('utf-8', 'ignore').strip()
-        if l:
-            # ONLY show errors, warnings, or major status changes
-            important = any(x in l.upper() for x in ["ERROR", "FATAL", "CRITICAL", "WARNING", "SUCCESS", "CONNECTED", "RESTART"])
-            if important:
-                log(prefix, l, color)
+        if not l: continue
+        
+        l_up = l.upper()
+        # FILTER: Reduce noise for 'token doesn't match' during first setup
+        is_token_error = "TOKEN IN LOGIN DOESN'T MATCH" in l_up or "TOKEN MISMATCH" in l_up
+        
+        if is_token_error:
+            if mgr: mgr.set_tunnel_status("Auth Error", "Token mismatch (Check VPS config)")
+            now = time.time()
+            if now - last_noise_time < 60: # Only show once per minute
+                continue
+            last_noise_time = now
+            log(prefix, "Waiting for correct VPS configuration (Token mismatch)...", color)
+            continue
+
+        if "LOGIN TO SERVER SUCCESS" in l_up:
+            if mgr: mgr.set_tunnel_status("Connected")
+            log(prefix, "Tunnel Established Successfully!", C_GRN)
+            continue
+            
+        if "START PROXY SUCCESS" in l_up:
+            continue # Already reported login success
+
+        # ONLY show errors, warnings, or major status changes
+        important = any(x in l_up for x in ["ERROR", "FATAL", "CRITICAL", "WARNING", "SUCCESS", "CONNECTED", "RESTART"])
+        if important:
+            log(prefix, l, color)
+            if mgr and prefix == "FRPC" and "ERROR" in l_up:
+                mgr.set_tunnel_status("Error", l)
     proc.stdout.close()
 
 def load_usage_store():
     try:
-        with open(USAGE_STORE_PATH, "r") as f:
+        with open(USAGE_STORE_PATH, "r", encoding="utf-8") as f:
             return json.load(f)
     except Exception:
         return {"accounts": {}}
 
 def save_usage_store(store):
     try:
-        with open(USAGE_STORE_PATH, "w") as f:
-            json.dump(store, f, indent=2)
+        with open(USAGE_STORE_PATH, "w", encoding="utf-8") as f:
+            json.dump(store, f, indent=2, ensure_ascii=False)
     except Exception:
         pass
 
 def load_config():
     """Load settings and accounts from accounts.json"""
     try:
-        with open(os.path.join(CONFIG_DIR, "accounts.json"), "r") as f:
+        with open(os.path.join(CONFIG_DIR, "accounts.json"), "r", encoding="utf-8") as f:
             return json.load(f)
     except Exception as e:
         log("ERROR", "Failed to load accounts.json: {0}".format(e))
@@ -491,7 +516,27 @@ def main():
     else:
         log("ERROR", "xray.exe not found in bin folder!")
 
-    # 3. Start FRPC
+    # Load usage store early
+    usage_store = load_usage_store()
+    for i, acc in enumerate(accounts):
+        uname = acc.get("username", "")
+        cached = usage_store.get("accounts", {}).get(uname)
+        if cached:
+            rotator.known_usage[i] = cached
+
+    # Start web dashboard FIRST so we have a mgr to pass to FRPC
+    mgr = server_manager.ServerManager()
+    mgr.set_tunnel_status("Connecting...")
+    try:
+        web_thread = threading.Thread(target=server_manager.start_web_server, args=(mgr, mgr.port))
+        web_thread.daemon = True
+        web_thread.start()
+        log("OK", "Dashboard thread launched.")
+    except Exception as e:
+        log("ERROR", "Dashboard failed to start: {0}".format(e))
+        sys.exit(1)
+
+    # 3. Start FRPC (pass the mgr for status updates)
     frpc_path = os.path.join(BASE_DIR, "bin", "frpc.exe")
     if os.path.exists(frpc_path):
         log("INFO", "Launching FRPC tunnel...")
@@ -500,34 +545,9 @@ def main():
             [frpc_path, "-c", os.path.join(CONFIG_DIR, "frpc." + cfg_ext)],
             cwd=CONFIG_DIR, stdout=subprocess.PIPE, stderr=subprocess.STDOUT
         )
-        threading.Thread(target=stream_subprocess, args=(fp, "FRPC", C_RED), daemon=True).start()
+        threading.Thread(target=stream_subprocess, args=(fp, "FRPC", C_RED, mgr), daemon=True).start()
     else:
         log("ERROR", "frpc.exe not found in bin folder!")
-
-    usage_store = load_usage_store()
-    skip_next_usage_log = False
-    for i, acc in enumerate(accounts):
-        uname = acc.get("username", "")
-        cached = usage_store.get("accounts", {}).get(uname)
-        if cached:
-            rotator.known_usage[i] = cached
-
-    # Start web dashboard in background
-    mgr = server_manager.ServerManager()
-    try:
-        # Check if port is already in use by trying to start the server
-        web_thread = threading.Thread(
-            target=server_manager.start_web_server,
-            args=(mgr, mgr.port)
-        )
-        web_thread.daemon = True
-        web_thread.start()
-        log("OK", "Dashboard thread launched.")
-    except Exception as e:
-        log("ERROR", "Dashboard failed to start: {0}".format(e))
-        log("ERROR", "This usually means port {0} is already in use.".format(mgr.port))
-        log("ERROR", "Please close any other instances of this program.")
-        sys.exit(1)
 
     def _push_status():
         """Push current state to the web dashboard."""

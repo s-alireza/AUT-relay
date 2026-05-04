@@ -114,11 +114,28 @@ border-radius:50%;animation:spin .8s linear infinite;margin-right:6px;vertical-a
 <h1>&#127760; AUT Proxy Bridge</h1>
 <div class="sub">Server Management Console</div>
 </div>
+
+<div id="setup_warning" style="display:none;">
+    <div class="sb" style="border-color: rgba(255,171,64,.4); background: rgba(255,171,64,.05);">
+        <div style="color:#ffab40; font-weight:700; margin-bottom:10px; display:flex; align-items:center; gap:8px;">
+            <span>⚠️ Configuration Required</span>
+        </div>
+        <p style="font-size:12px; color:#aaa; margin-bottom:12px;">Your VPS is not yet connected. Please paste this configuration into your VPS at <code>frp/frps.ini</code> to start the tunnel:</p>
+        <textarea id="warning_vps_text" readonly style="width:100%; height:120px; background:rgba(0,0,0,.3); border:1px solid rgba(255,255,255,.1); border-radius:8px; color:#eee; font-family:monospace; font-size:11px; padding:10px; margin-bottom:10px;"></textarea>
+        <button class="pbtn" onclick="copyWarningVPS()" style="width:100%; border-color:#ffab40; color:#ffab40;">Copy Configuration</button>
+    </div>
+</div>
+
 <div class="sb" id="sbar">
 <div class="sr"><span class="sl">Active Server</span><span class="sv g" id="ss">&#8212;</span></div>
 <div class="sr"><span class="sl">AUT Account</span><span class="sv" id="sa">&#8212;</span></div>
-<div class="sr"><span class="sl">Speed Phase</span><span class="sv" id="sph">&#8212;</span></div>
+<div class="sr"><span class="sl">Tunnel Status</span><span class="sv" id="ts_val">&#8212;</span></div>
 <div id="usage_bars"></div>
+</div>
+
+<div class="sb" id="tool_bar" style="display:none; gap:10px; margin-top: -4px;">
+    <button class="pbtn" onclick="copyVLESS()" style="flex:1; padding:10px;">&#128203; Copy VLESS</button>
+    <button class="pbtn" id="vps_btn" onclick="showVPSConfig()" style="flex:1; padding:10px; display:none;">&#9881; VPS Config</button>
 </div>
 <div class="sec">&#127760; VPN Servers</div>
 <div id="list"></div>
@@ -157,6 +174,19 @@ border-radius:50%;animation:spin .8s linear infinite;margin-right:6px;vertical-a
 <button class="bc" onclick="hideModal('aut')">Cancel</button>
 <button class="bs" onclick="addAut()">Save</button>
 </div>
+</div>
+</div>
+</div>
+
+<!-- VPS Config Modal -->
+<div class="mo" id="vpsModal">
+<div class="md">
+<h2>VPS Configuration</h2>
+<p style="font-size:11px; color:#888; margin-bottom:10px;">Paste this block into your VPS at <code>frp/frps.toml</code></p>
+<textarea id="vps_text" readonly style="height:180px;"></textarea>
+<div class="ma">
+<button class="bs" style="width:100%" onclick="copyVPS()">Copy to Clipboard</button>
+<button class="bc" onclick="hideModal('vps')">Close</button>
 </div>
 </div>
 </div>
@@ -222,7 +252,42 @@ if(!d)return;
 var ac=d.servers[d.active_index];
 document.getElementById('ss').textContent=ac?(ac.flag+' '+ac.name):'\u2014';
 document.getElementById('sa').textContent=d.aut_account||'\u2014';
-document.getElementById('sph').textContent=d.aut_phase||'\u2014';
+
+var ts = d.tunnel_status || 'Unknown';
+var ts_el = document.getElementById('ts_val');
+ts_el.textContent = ts;
+
+var warn = document.getElementById('setup_warning');
+var vps_btn = document.getElementById('vps_btn');
+var tool_bar = document.getElementById('tool_bar');
+
+// Show VLESS button always when on dashboard
+tool_bar.style.display = 'flex';
+
+if(ts === 'Connected') { 
+    ts_el.className = 'sv g';
+    warn.style.display = 'none';
+    vps_btn.style.display = 'none';
+}
+else if(ts.includes('Error')) { 
+    ts_el.className = 'sv red';
+    vps_btn.style.display = 'block';
+    
+    // Only fetch config for the warning alert if it's an explicit error
+    if(warn.style.display === 'none') {
+        api('GET','/api/vps_config',null,function(cd){
+            if(cd.ok) {
+                document.getElementById('warning_vps_text').value = cd.frps_toml;
+                warn.style.display = 'block';
+            }
+        });
+    }
+}
+else { 
+    ts_el.className = 'sv y';
+    warn.style.display = 'none';
+    vps_btn.style.display = 'none';
+}
 
 // Usage bars for current account
 var ub='',cu=d.current_usage||{};
@@ -314,6 +379,39 @@ function factoryReset(){
             toast('Error: '+(d.error||'failed'));
         }
     });
+}
+
+function copyVLESS(){
+    api('GET','/api/vps_config',null,function(d){
+        if(d.ok){
+            navigator.clipboard.writeText(d.vless_link).then(function(){
+                toast('VLESS Link copied to clipboard!');
+            });
+        }
+    });
+}
+
+function showVPSConfig(){
+    api('GET','/api/vps_config',null,function(d){
+        if(d.ok){
+            document.getElementById('vps_text').value = d.frps_toml;
+            showModal('vps');
+        }
+    });
+}
+
+function copyVPS(){
+    var t = document.getElementById('vps_text');
+    t.select();
+    document.execCommand('copy');
+    toast('VPS Config copied!');
+}
+
+function copyWarningVPS(){
+    var t = document.getElementById('warning_vps_text');
+    t.select();
+    document.execCommand('copy');
+    toast('VPS Config copied!');
 }
 
 // Start sequence

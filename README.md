@@ -5,7 +5,7 @@
 Turn your university internet into a personal VPN. This project bridges your university connection through a VPS to provide open, unrestricted internet on your phone or other devices. It automatically manages and rotates your student accounts to ensure maximum speed at all times.
 
 > 💡 **The Idea:** By simply leaving a Windows laptop or PC running at the university connected to the local network, you can access the university's unrestricted internet from anywhere. This is a service that the university's IT department should have provided (like Beheshti, IUST, etc.), but since they haven't, you can set it up yourself! This is especially useful for dorm students who cannot physically come to Tehran just to use the university internet.
-> 
+>
 > All you need is an Iranian VPS (which is much more cost-effective than buying a VPN or even Pro internet packages in some cases). You can even team up with friends to leave one computer running and add multiple student accounts (including those from seniors or alumni) to split the costs. Also, make sure to test the V2ray configs you previously used to connect and add them to your client apps. Good luck, future versions are on the way!
 ---
 
@@ -13,14 +13,14 @@ Turn your university internet into a personal VPN. This project bridges your uni
 
 Get the latest version for your system from the **[Releases Page](https://github.com/s-alireza/AUT-relay/releases/latest)**:
 
-*   🚀 **[Download 64-bit (Windows 10/11)](https://github.com/s-alireza/AUT-relay/releases/download/v1.0.0/AUT-Relay-v1.0.0-x64.zip)**
-*   📦 **[Download 32-bit (Windows 7/Old PC)](https://github.com/s-alireza/AUT-relay/releases/download/v1.0.0/AUT-Relay-v1.0.0-x32.zip)**
+* 🚀 **[Download 64-bit (Windows 10/11)](https://github.com/s-alireza/AUT-relay/releases/download/v1.0.0/AUT-Relay-v1.0.0-x64.zip)**
+* 📦 **[Download 32-bit (Windows 7/Old PC)](https://github.com/s-alireza/AUT-relay/releases/download/v1.0.0/AUT-Relay-v1.0.0-x32.zip)**
 
 ---
 
 ## 📋 Before You Start (Prerequisites)
 
-1. **An Iranian VPS**: You need a Linux VPS (Ubuntu) located in Iran (you can purchase from ArvanCloud).
+1. **An Iranian VPS**: You need a Linux VPS (Ubuntu) located in Iran (You can purchase from ArvanCloud).
 2. **Python Installed**: You must have Python (3.4 or newer) installed on your Windows PC.
     * *Note: The setup wizard needs Python to run, so install it first!*
 3. **AUT Network**: Your PC must be connected to the Amirkabir University network.
@@ -29,67 +29,66 @@ Get the latest version for your system from the **[Releases Page](https://github
 
 ## 🚀 Quick Start (3 Steps)
 
-### Step 1: VPS Setup (Relay Server)
+### Step 1: Local PC Configuration
 
-SSH into your **Iranian VPS** and follow these steps.
+1. **Prerequisites**: Ensure you have your **VPS IP Address** and **Python** installed.
+2. **Choose Your Release**:
+   * If you have a modern PC (Windows 10/11), open the `VLESS_Server_64bit` folder.
+   * If you have an older PC (Windows 7/32-bit), open the `VLESS_Server_32bit` folder.
+3. **Launch the Setup**: Inside your chosen folder, double-click **`Start_Server.bat`**.
+4. **Web-Based Wizard**: The script will open your browser to `http://127.0.0.1:3080`.
+5. **Generate Config**: Fill in your VPS IP, AUT credentials, and dashboard password.
+6. **Save Your Config**: Once finished, the wizard will display a **VPS Configuration** block. **Copy this block** for the next step.
 
-#### A. Download & Extract
+---
 
-Try the automatic download first. If it fails due to network restrictions, follow the **Manual Path**.
+### Step 2: VPS Server Setup
 
-**Option 1: Automatic Download**
+SSH into your **Iranian VPS** and follow these steps to apply the configuration you just generated.
 
-Try downloading directly from GitHub:
+#### A. Download & Extract FRP
+
+Choose **one** of these methods to download FRP on your VPS:
+
+> **Option 1: GitHub (Standard)**
+>
+> ```bash
+> wget -O frp.tar.gz https://github.com/fatedier/frp/releases/download/v0.61.1/frp_0.61.1_linux_amd64.tar.gz
+> ```
+
+> **Option 2: Iranian Mirror (If GitHub is slow/blocked)**
+>
+> ```bash
+> wget -O frp.tar.gz https://scorpian.ir/proxy/asset/fatedier/frp/213672059
+> ```
+
+> **Option 3: Manual Installation (WinSCP/SFTP)**
+> If `wget` fails, download `frp_0.61.1_linux_amd64.tar.gz` to your PC and upload it to your server using **WinSCP**, **FileZilla**, or **Termius**.
+
+**Extract the files:**
 
 ```bash
-wget -O frp.tar.gz https://github.com/fatedier/frp/releases/download/v0.61.1/frp_0.61.1_linux_amd64.tar.gz
+tar -xzf frp.tar.gz && mv frp_0.61.1_linux_amd64 frp && chmod +x frp/frps
 ```
 
-*If GitHub is blocked*, use the Iranian mirror:
+#### B. Apply Configuration
+
+Run this command, **paste the VPS Configuration block**, and then **press `Ctrl+D`** to save and exit:
 
 ```bash
-wget -O frp.tar.gz https://scorpian.ir/proxy/asset/fatedier/frp/213672059
-```
-
-**Option 2: Manual Download (If automatic fails)**
-
-1. Download the file on your PC using either:
-   * [Official GitHub Link](https://github.com/fatedier/frp/releases/download/v0.61.1/frp_0.61.1_linux_amd64.tar.gz)
-   * [Iranian Mirror Link](https://scorpian.ir/proxy/asset/fatedier/frp/213672059)
-2. Upload it to your VPS (rename it to `frp.tar.gz`).
-    * **Upload Command (Run on your local PC):**
-
-        ```bash
-        # Note: Use :~/ to upload to your home folder
-        scp C:\Path\To\frp.tar.gz username@YOUR_VPS_IP:~/
-        ```
-
-    * *Or use a tool like FileZilla or WinSCP.*
-
-**Once the file is on your VPS, run this:**
-
-```bash
-# Extract, rename folder, and cleanup
-tar -xzf frp.tar.gz
-mv frp_0.61.1_linux_amd64 frp
-chmod +x frp/frps
-rm frp.tar.gz
-```
-
-#### B. Create Configuration
-
-Run this to create the server configuration:
-
-```bash
-echo "bindPort = 7000
-kcpBindPort = 7000" > frp/frps.toml
+cat > frp/frps.toml
 ```
 
 #### C. Setup Auto-Start (Service)
 
-Paste this entire block to create a background service that starts automatically on boot:
+Paste this entire block to ensure the tunnel starts automatically and has permission to use port 443:
 
 ```bash
+# Set permissions for port 443
+sudo setcap 'cap_net_bind_service=+ep' $(pwd)/frp/frps
+
+# Create the service file
+CUR_DIR=$(pwd)
 sudo tee /etc/systemd/system/frps.service > /dev/null <<EOF
 [Unit]
 Description=FRP Server
@@ -97,48 +96,18 @@ After=network.target
 
 [Service]
 Type=simple
-ExecStart=$(pwd)/frp/frps -c $(pwd)/frp/frps.toml
+User=root
+WorkingDirectory=$CUR_DIR/frp
+ExecStart=$CUR_DIR/frp/frps -c $CUR_DIR/frp/frps.toml
 Restart=always
 RestartSec=5
 
 [Install]
 WantedBy=multi-user.target
 EOF
+
+sudo systemctl daemon-reload && sudo systemctl enable frps && sudo systemctl restart frps
 ```
-
-#### D. Start & Verify
-
-Run these commands to start the server and make sure it's running correctly:
-
-```bash
-# 1. Enable and Start
-sudo systemctl daemon-reload
-sudo systemctl enable frps
-sudo systemctl start frps
-
-# 2. Verify Status (Should say "active (running)")
-sudo systemctl status frps
-
-# 3. Verify Port (Should show port 7000 is LISTENING)
-sudo ss -tulpn | grep 7000
-```
-
-If everything looks good, you'll see `active (running)` and port `7000` in the output. **🚀 VPS is Ready!**
-
----
-
-### Step 2: Local PC Setup
-
-1. **Choose Your Release**:
-   * If you have a modern PC (Windows 10/11), open the `VLESS_Server_64bit` folder.
-   * If you have an older PC (Windows 7/32-bit), open the `VLESS_Server_32bit` folder.
-2. **Launch the Master Controller**: Inside your chosen folder, double-click **`Start_Server.bat`**.
-3. **Web-Based Setup**: On the first run, the script will open your browser to `http://127.0.0.1:3080`.
-4. Fill in the required details:
-   * **VPS IP Address**
-   * **AUT Username & Password**
-   * **Dashboard Credentials** (Create a username and password to secure your management panel).
-5. **Unified Monitoring**: After setup, all services (Xray, FRPC, and Account Manager) will launch instantly in a single, color-coded **Master Window**. No more cluttered desktop!
 
 ---
 
@@ -175,5 +144,6 @@ If you want to wipe all your data (passwords/IPs/Configs) before sharing this fo
 ## ❓ Troubleshooting
 
 * **Fails to start?** Make sure Python is installed (check "Add to PATH" during installation).
-* **No Internet?** Ensure your VPS firewall allows port **7000** (KCP/FRP) and **8080** (VLESS).
+* **No Internet?** Ensure your VPS provider's **External Firewall Dashboard** (Security Group) allows port **443** (FRP/TLS) and **8880** (Remote Dashboard).
+* **Connection Error?** Check if another service (like Nginx) is already using port 443 on your VPS.
 * **Forgot Dashboard Password?** Delete the `config` folder manually, then run `Start_Server.bat` again to recreate your setup.
