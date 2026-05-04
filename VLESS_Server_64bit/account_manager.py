@@ -81,6 +81,23 @@ def stream_subprocess(proc, prefix, color, mgr=None):
             if mgr and prefix == "FRPC" and "ERROR" in l_up:
                 mgr.set_tunnel_status("Error", l)
     proc.stdout.close()
+    proc.wait()
+
+def persistent_process(name, cmd, cwd, prefix, color, mgr=None):
+    """Keep a subprocess running forever."""
+    while True:
+        try:
+            log("INFO", "Launching {0}...".format(name))
+            proc = subprocess.Popen(
+                cmd, cwd=cwd, 
+                stdout=subprocess.PIPE, stderr=subprocess.STDOUT
+            )
+            # This blocks until the process stdout is closed (process exits)
+            stream_subprocess(proc, prefix, color, mgr)
+            log(prefix, "{0} exited. Restarting in 5s...".format(name), color)
+        except Exception as e:
+            log("ERROR", "Failed to launch {0}: {1}".format(name, e))
+        time.sleep(5)
 
 def load_usage_store():
     try:
@@ -506,15 +523,14 @@ def main():
     portal = AUTPortal(url)
     rotator = AccountRotator(accounts, thresholds)
     
-    # 2. Start Xray
+    # 2. Start Xray (Persistent)
     xray_path = os.path.join(BASE_DIR, "bin", "xray.exe")
     if os.path.exists(xray_path):
-        log("INFO", "Launching Xray core...")
-        xp = subprocess.Popen(
-            [xray_path, "-c", os.path.join(CONFIG_DIR, "config.json")],
-            cwd=CONFIG_DIR, stdout=subprocess.PIPE, stderr=subprocess.STDOUT
-        )
-        threading.Thread(target=stream_subprocess, args=(xp, "XRAY", C_BLU), daemon=True).start()
+        threading.Thread(
+            target=persistent_process, 
+            args=("Xray core", [xray_path, "-c", os.path.join(CONFIG_DIR, "config.json")], CONFIG_DIR, "XRAY", C_BLU),
+            daemon=True
+        ).start()
     else:
         log("ERROR", "xray.exe not found in bin folder!")
 
@@ -538,16 +554,15 @@ def main():
         log("ERROR", "Dashboard failed to start: {0}".format(e))
         sys.exit(1)
 
-    # 3. Start FRPC (pass the mgr for status updates)
+    # 3. Start FRPC (Persistent)
     frpc_path = os.path.join(BASE_DIR, "bin", "frpc.exe")
     if os.path.exists(frpc_path):
-        log("INFO", "Launching FRPC tunnel...")
         cfg_ext = "toml" if os.path.exists(os.path.join(CONFIG_DIR, "frpc.toml")) else "ini"
-        fp = subprocess.Popen(
-            [frpc_path, "-c", os.path.join(CONFIG_DIR, "frpc." + cfg_ext)],
-            cwd=CONFIG_DIR, stdout=subprocess.PIPE, stderr=subprocess.STDOUT
-        )
-        threading.Thread(target=stream_subprocess, args=(fp, "FRPC", C_RED, mgr), daemon=True).start()
+        threading.Thread(
+            target=persistent_process, 
+            args=("FRPC tunnel", [frpc_path, "-c", os.path.join(CONFIG_DIR, "frpc." + cfg_ext)], CONFIG_DIR, "FRPC", C_RED, mgr),
+            daemon=True
+        ).start()
     else:
         log("ERROR", "frpc.exe not found in bin folder!")
 
@@ -659,11 +674,8 @@ def main():
     except Exception as e:
         log("ERROR", "Master loop error: {0}".format(e))
     finally:
-        # Kill subprocesses explicitly
-        try: xp.terminate()
-        except: pass
-        try: fp.terminate()
-        except: pass
+        # Note: Subprocesses are managed by persistent_process threads.
+        # They will be terminated when the main thread exits due to daemon=True.
         log("OK", "Master Controller stopped.")
 
 if __name__ == "__main__":
