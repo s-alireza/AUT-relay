@@ -1,0 +1,103 @@
+# High-Speed DPI Firewall Bypass: Analysis & Architecture Report
+
+## 1. Executive Summary
+This report documents the systematic analysis and bypass of a strict university Deep Packet Inspection (DPI) firewall and captive portal. The primary objective was to establish a high-speed, unmonitored proxy bridge. After exhaustive testing of various tunneling protocols, we successfully developed a hybrid architecture leveraging **Fastly CDN whitelisting** combined with **TCP-Injection SNI Spoofing** to achieve full-speed, unauthenticated internet access.
+
+---
+
+## 2. Network Environment & Initial Discoveries
+
+### 2.1 The Captive Portal & MITM Interception
+The university network employs a strict captive portal that blocks unauthorized outbound traffic. 
+- **Decoy Proxies:** Standard `HTTP CONNECT` requests to external IPs returned `HTTP/1.1 200 OK` but immediately dropped the connection, acting as a decoy.
+- **TLS Interception:** The firewall aggressively intercepts HTTPS traffic, replacing legitimate SSL certificates with a captive portal certificate (`CN=*.aut.ac.ir`). This was verified across multiple endpoints (e.g., Cloudflare `1.1.1.1`, Vercel, Next.js).
+
+### 2.2 DNS Tunneling (Fallback Strategy)
+To establish initial connectivity, we developed a custom DNS-over-TCP tunnel (`dns_tunnel_server.py`, `dns_tunnel_client.py`). Traffic was encapsulated using Base32 encoding within DNS `TXT` records. While successful at bypassing the portal, the inherent overhead and latency of DNS tunneling failed to meet the "full-speed" requirement, prompting further exploration.
+
+---
+
+## 3. Detailed Probing & Analysis Logs (Tests A - O)
+
+To map the firewall's exact behavior, we conducted a series of targeted TCP, HTTP, and TLS probes:
+
+### Phase 1: Decoy Proxy & Protocol Blocking
+- **TEST A (HTTP Connect):** `HTTP/1.1 200 OK`
+  - *Analysis:* The firewall responds to proxy CONNECT requests to give the illusion of an open port, but immediately drops subsequent payloads.
+- **TEST B (TCP Connectivity):** `TcpTestSucceeded: True` for arbitrary IPs.
+  - *Analysis:* TCP handshakes (SYN/ACK) are allowed globally, meaning the firewall blocks at the Application/Payload layer (L7), not L4.
+- **TEST C (Payload Relay):** `Bytes available: 0`
+  - *Analysis:* Confirmed that despite the `200 OK` in Test A, no actual data is relayed. The connection is a dead-end decoy.
+- **TEST G & H (Raw TLS/HTTP):** `The underlying connection was closed... forcibly closed by remote host.`
+  - *Analysis:* Unrecognized or blocked protocol signatures are reset (`RST`) by the DPI engine.
+- **TEST I (SSH over Port 443):** `kex_exchange_identification: Connection closed by remote host`
+  - *Analysis:* The DPI actively identifies the SSH protocol signature, even on port 443, and terminates it. Port 443 strictly requires a valid TLS handshake.
+
+### Phase 2: MITM & CDN Discovery
+- **TEST D (TLS Certificate Inspection):**
+  - Target `1.1.1.1` -> `CERT=CN=*.aut.ac.ir`
+  - Target `216.239.38.120` (Google) -> `CERT=CN=*.aut.ac.ir`
+  - Target `165.22.174.8` (Droplet) -> `CERT=CN=*.aut.ac.ir`
+  - Target `151.101.1.1` (Fastly) -> `CERT=CN=fastly-pin-check.secretcdn.net`
+  - *Analysis:* Massive discovery. The firewall performs aggressive MITM certificate injection on almost all traffic, but completely **ignores Fastly CDN IPs**.
+- **TEST L (Vercel/Next.js MITM):** `[vercel.com]: TLS OK! Cert=CN=*.aut.ac.ir ... HTTP/1.1 302 Hotspot login required`
+  - *Analysis:* Verified that other major CDNs are strictly MITMed and redirected to the captive portal login page.
+
+### Phase 3: Validating the Fastly Whitelist
+- **TEST J (Direct HTTP via Fastly):** `TLS SUCCESS! ... HTTP/1.1 200 OK ... Via: 1.1 varnish`
+  - *Analysis:* Establishing a direct connection to a Fastly IP with a valid Fastly SNI (`www.python.org`) successfully reaches the edge without interception.
+- **TEST N (Random SNI on Fastly):** `Target SNI: totally-random-xyz123.com -> Cert=CN=fastly-pin-check.secretcdn.net`
+  - *Analysis:* Crucial finding. The firewall does not whitelist Fastly based on the SNI; it uses a hardcoded **IP-based whitelist**. Any SNI directed at a Fastly IP passes the firewall's initial TLS inspection.
+- **TEST O (Fastly IP Range Verification):** 
+  - Probed `151.101.1.1`, `151.101.65.1`, `151.101.129.1`, `151.101.193.1`.
+  - *Analysis:* All IPs returned the native Fastly certificate, proving the entire `151.101.0.0/16` subnet is exempt from MITM.
+
+---
+
+## 4. Vulnerability Discovery: Fastly CDN Whitelisting
+
+Extensive IP/Domain probing revealed a critical vulnerability in the firewall's configuration:
+- **IP-Based Whitelist:** The Fastly CDN IP range (e.g., `151.101.0.0/16`) is fully whitelisted and **exempt from MITM interception**.
+- **Proof of Concept:** Connecting to `151.101.1.1:443` successfully returned Fastly's default certificate (`CN=fastly-pin-check.secretcdn.net`) rather than the university's intercepted certificate.
+- **SNI Agnosticism (Partial):** The firewall initially appeared to ignore the Server Name Indication (SNI) for Fastly IPs, allowing a connection with a random SNI (`totally-random-xyz123.com`) to succeed.
+
+---
+
+## 4. The Routing Challenge & DPI Blocking
+
+To utilize Fastly as a proxy front, we configured a Fastly service to route traffic to a DigitalOcean Droplet (`165.22.174.8`) running an Xray VLESS/WebSocket server on port 80. Since Fastly restricts default domains, we utilized a `DuckDNS` domain (`relay-aut.duckdns.org`).
+
+### 4.1 Domain Fronting Failure
+We attempted classic Domain Fronting: sending an allowed SNI (`www.python.org`) to bypass the firewall, while passing the actual destination (`Host: relay-aut.duckdns.org`) in the HTTP headers.
+- **Result:** Failed. Fastly has patched Domain Fronting. It ignored the `Host` header, strictly routed the request based on the SNI, and returned a `200 OK` from Python.org instead of the droplet.
+
+### 4.2 DPI SNI Blocking Detection
+We then attempted to connect using the real SNI (`relay-aut.duckdns.org`).
+- **Result:** The connection was forcibly closed by the firewall. 
+- **Analysis:** Despite the Fastly IP whitelist, the DPI firewall actively monitors SNIs and maintains a strict blocklist against dynamic DNS providers like DuckDNS, immediately dropping the connection upon detecting the blocked SNI.
+
+---
+
+## 5. The Final Architecture: SNI Spoofing + CDN
+
+To bypass the DPI's SNI blocklist without relying on Fastly's disabled Domain Fronting, we implemented a TCP-Injection technique using the `patterniha/SNI-Spoofing` tool.
+
+### 5.1 How It Works
+The architecture chains a local TCP injector with the Xray client:
+
+1. **Local Interception:** The Xray client connects to a local proxy (`127.0.0.1:40443`) managed by the SNI-Spoofing script.
+2. **The Fake ClientHello (Blinding the DPI):** The script connects to the Fastly IP (`151.101.1.1`) and injects a **Fake TLS ClientHello** containing an allowed SNI (`www.python.org`).
+   - *Crucially*, this fake packet is sent with an intentionally **broken TCP sequence number**.
+   - The DPI firewall inspects the packet, sees an allowed SNI, marks the connection flow as "safe/allowed", and stops deep inspection.
+   - Fastly receives the packet, recognizes the invalid TCP sequence, and silently drops it.
+3. **The Real ClientHello:** The script immediately forwards the **Real TLS ClientHello** from the Xray client (containing the blocked SNI: `relay-aut.duckdns.org`).
+   - The firewall ignores this packet because the connection is already marked safe.
+   - Fastly processes the valid packet, reads the DuckDNS SNI, matches it to the user's service, and routes the traffic to the Droplet.
+
+### 5.2 Client Configuration Nuance
+Because Fastly does not hold a valid custom TLS certificate for the DuckDNS domain on its edge servers, it serves a default certificate. To prevent the Xray client from terminating the connection due to a certificate mismatch, the Xray config was updated to allow insecure TLS (`"allowInsecure": true`), establishing the VLESS/WebSocket tunnel seamlessly.
+
+---
+
+## 6. Conclusion
+By exploiting the firewall's IP whitelisting of Fastly and blinding the DPI engine using TCP sequence injection, we successfully established a high-speed, direct proxy tunnel to the VPS. This architecture entirely circumvents the university's captive portal authentication and bandwidth restrictions.

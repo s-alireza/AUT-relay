@@ -1,0 +1,44 @@
+{
+  "log": { "loglevel": "info" },
+  "inbounds": [
+    {
+      "port": 10808,
+      "listen": "127.0.0.1",
+      "protocol": "socks",
+      "settings": { "udp": true }
+    }
+  ],
+  "outbounds": [
+    {
+      "protocol": "vless",
+      "settings": {
+        "vnext": [
+          {
+            "address": "127.0.0.1",
+            "port": 40443,
+            "users": [
+              {
+                "id": "5e58024b-9d0b-42b4-91fd-3e8f330946cc",
+                "encryption": "none"
+              }
+            ]
+          }
+        ]
+      },
+      "streamSettings": {
+        "network": "ws",
+        "security": "tls",
+        "tlsSettings": {
+          "serverName": "relay-aut.duckdns.org",
+          "allowInsecure": true
+        },
+        "wsSettings": {
+          "path": "/tunnel",
+          "headers": {
+            "Host": "relay-aut.duckdns.org"
+          }
+        }
+      }
+    }
+  ]
+}

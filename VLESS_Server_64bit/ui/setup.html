@@ -72,45 +72,22 @@ border-top-color:#000;border-radius:50%;animation:spin 1s linear infinite;vertic
     <button class="btn" id="submitBtn" onclick="submitSetup()">Complete Setup</button>
 </div>
 
-<div class="container" id="success-msg" style="display:none; max-width: 800px;">
+<div class="container" id="success-msg" style="display:none;">
     <h2>✅ Setup Complete!</h2>
-    <p>Your configuration files have been generated. Follow these steps to finish:</p>
+    <p>Your configuration has been generated successfully.</p>
     
     <div class="sec">
-        <h3>Step 1: Client Connection</h3>
-        <p>Copy this VLESS link to your phone app (Karing / v2rayNG / v2rayN):</p>
-        <div id="vless-box" style="word-break: break-all; background: rgba(0,230,118,0.1); border: 1px solid #00e676; padding: 15px; border-radius: 12px; font-family: monospace; color: #00e676; margin-bottom: 10px;"></div>
+        <label>1. VLESS Client Link (Phone/App)</label>
+        <div id="vless-box" style="word-break: break-all; background: rgba(0,230,118,0.1); border: 1px solid #00e676; padding: 15px; border-radius: 12px; font-family: monospace; color: #00e676; margin-top: 10px;"></div>
     </div>
 
     <div class="sec">
-        <h3>Step 2: VPS Server Setup</h3>
-        <p>SSH into your VPS and use <strong>one</strong> of these methods to download FRP:</p>
-        
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px;">
-            <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.1); padding: 15px; border-radius: 12px;">
-                <strong style="color: #448aff;">Option A: GitHub (Global)</strong>
-                <code style="display: block; background: #000; padding: 8px; border-radius: 6px; margin-top: 10px; font-size: 11px; color: #ccc;">wget -O frp.tar.gz https://github.com/fatedier/frp/releases/download/v0.61.1/frp_0.61.1_linux_amd64.tar.gz</code>
-            </div>
-            <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.1); padding: 15px; border-radius: 12px;">
-                <strong style="color: #ffab40;">Option B: Mirror (Iran)</strong>
-                <code style="display: block; background: #000; padding: 8px; border-radius: 6px; margin-top: 10px; font-size: 11px; color: #ccc;">wget -O frp.tar.gz https://scorpian.ir/proxy/asset/fatedier/frp/213672059</code>
-            </div>
-        </div>
-
-        <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.1); padding: 15px; border-radius: 12px; margin-bottom: 15px;">
-            <strong style="color: #888;">Option C: Manual Installation</strong>
-            <p style="font-size: 11px; color: #777; margin-top: 5px;">If wget fails, download <code>frp_0.61.1_linux_amd64.tar.gz</code> on your PC and upload it to the server using <strong>WinSCP</strong> or <strong>Termius</strong>.</p>
-        </div>
-
-        <p>Extract and apply your configuration:</p>
-        <code style="display: block; background: #000; padding: 8px; border-radius: 6px; margin-bottom: 10px; font-size: 11px; color: #ccc;">tar -xzf frp.tar.gz && mv frp_0.61.1_linux_amd64 frp && chmod +x frp/frps</code>
-        
-        <p>Paste this block into <code>frp/frps.toml</code>:</p>
-        <div id="toml-box" style="white-space: pre; background: rgba(255,235,59,0.05); border: 1px solid rgba(255,235,59,0.3); padding: 15px; border-radius: 12px; font-family: monospace; color: #ffeb3b; text-align: left;"></div>
+        <label>2. VPS Configuration (frp/frps.toml)</label>
+        <div id="toml-box" style="white-space: pre; background: rgba(255,235,59,0.05); border: 1px solid rgba(255,235,59,0.3); padding: 15px; border-radius: 12px; font-family: monospace; color: #ffeb3b; text-align: left; margin-top: 10px;"></div>
     </div>
 
     <div id="dash-btn-container"></div>
-    <p style="margin-top: 20px; font-size: 12px; color: #666;"><strong>Note:</strong> The setup server will transition to the dashboard panel in a few seconds.</p>
+    <p style="margin-top: 20px; font-size: 12px; color: #666;"><strong>Note:</strong> You can now close this tab. The system is transitioning to the dashboard.</p>
 </div>
 
 <div class="toast" id="toast"></div>
