@@ -19,9 +19,10 @@ try:
 except ImportError:
     from BaseHTTPServer import HTTPServer, BaseHTTPRequestHandler
 try:
-    from urllib.parse import urlparse, parse_qs, unquote
+    from urllib.parse import urlparse, parse_qs, unquote, quote
 except ImportError:
-    from urlparse import urlparse, parse_qs, unquote
+    from urlparse import urlparse, parse_qs
+    from urllib import unquote, quote
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 CONFIG_DIR = os.path.join(BASE_DIR, "config")
@@ -312,6 +313,8 @@ class ServerManager:
         # Build complex config with routing
         proxy_outbound = server["outbound"].copy()
         proxy_outbound["tag"] = "proxy"
+        if "settings" not in proxy_outbound:
+            proxy_outbound["settings"] = {}
         
         direct_outbound = {"tag": "direct", "protocol": "freedom", "settings": {}}
         
@@ -407,9 +410,8 @@ class ServerManager:
         time.sleep(1)
         try:
             xray = os.path.join(BIN_DIR, "xray.exe")
-            with open(os.path.join(CONFIG_DIR, "xray.log"), "w") as log_file:
-                subprocess.Popen([xray], cwd=CONFIG_DIR, stdout=log_file, stderr=log_file)
-            log("OK", "Xray restarted (Routing active)")
+            # We only kill Xray; the account_manager watchdog will restart it with the new config.
+            log("OK", "Xray killed (Watchdog will restart it with new config)")
         except Exception as e:
             log("ERROR", "Failed to restart Xray: {0}".format(e))
 
@@ -540,7 +542,7 @@ class Handler(BaseHTTPRequestHandler):
             s = _mgr.settings
             vless_link = "vless://{0}@{1}:{2}?type=ws&security=none&path={3}#AUT-Relay".format(
                 s.get("vless_uuid", ""), s.get("vps_ip", ""), s.get("remote_xray_port", 8080), 
-                unquote(s.get("vless_ws_path", "/tunnel"))
+                quote(s.get("vless_ws_path", "/tunnel"))
             )
             
             # Generate the FRPS TOML block

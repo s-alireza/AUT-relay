@@ -36,10 +36,11 @@ C_BLU = "\033[94m"
 C_CYA = "\033[96m"
 C_RST = "\033[0m"
 
-def log(level, message, color=""):
-    """Simple timestamped logger with optional color."""
-    timestamp = datetime.now().strftime("%H:%M:%S")
     print("[{0}] {1}{2}{3}  {4}".format(timestamp, color, level.ljust(5), C_RST if color else "", message))
+    
+# Global registry for safe process cleanup
+active_procs = []
+proc_lock = threading.Lock()
 
 def log_startup_summary(portal_url, accounts_count, interval):
     log("INFO", "Master Controller | {0} accounts | {1}s interval".format(accounts_count, interval), C_CYA)
@@ -75,13 +76,15 @@ def stream_subprocess(proc, prefix, color, mgr=None):
             continue # Already reported login success
 
         # ONLY show errors, warnings, or major status changes
-        important = any(x in l_up for x in ["ERROR", "FATAL", "CRITICAL", "WARNING", "SUCCESS", "CONNECTED", "RESTART"])
+        important = any(x in l_up for x in ["ERROR", "FATAL", "CRITICAL", "WARNING", "SUCCESS", "CONNECTED", "RESTART", "FAILED", "INVALID"])
         if important:
             log(prefix, l, color)
             if mgr and prefix == "FRPC" and "ERROR" in l_up:
                 mgr.set_tunnel_status("Error", l)
     proc.stdout.close()
     proc.wait()
+    if mgr and prefix == "FRPC":
+        mgr.set_tunnel_status("Disconnected")
 
 def persistent_process(name, cmd, cwd, prefix, color, mgr=None):
     """Keep a subprocess running forever."""
@@ -92,12 +95,16 @@ def persistent_process(name, cmd, cwd, prefix, color, mgr=None):
                 cmd, cwd=cwd, 
                 stdout=subprocess.PIPE, stderr=subprocess.STDOUT
             )
+            with proc_lock:
+                active_procs.append(proc)
             # This blocks until the process stdout is closed (process exits)
             stream_subprocess(proc, prefix, color, mgr)
-            log(prefix, "{0} exited. Restarting in 5s...".format(name), color)
+            with proc_lock:
+                if proc in active_procs: active_procs.remove(proc)
+            log(prefix, "{0} exited. Restarting in 1s...".format(name), color)
         except Exception as e:
             log("ERROR", "Failed to launch {0}: {1}".format(name, e))
-        time.sleep(5)
+        time.sleep(1)
 
 def load_usage_store():
     try:
@@ -523,17 +530,6 @@ def main():
     portal = AUTPortal(url)
     rotator = AccountRotator(accounts, thresholds)
     
-    # 2. Start Xray (Persistent)
-    xray_path = os.path.join(BASE_DIR, "bin", "xray.exe")
-    if os.path.exists(xray_path):
-        threading.Thread(
-            target=persistent_process, 
-            args=("Xray core", [xray_path, "-c", os.path.join(CONFIG_DIR, "config.json")], CONFIG_DIR, "XRAY", C_BLU),
-            daemon=True
-        ).start()
-    else:
-        log("ERROR", "xray.exe not found in bin folder!")
-
     # Load usage store early
     usage_store = load_usage_store()
     for i, acc in enumerate(accounts):
@@ -542,7 +538,7 @@ def main():
         if cached:
             rotator.known_usage[i] = cached
 
-    # Start web dashboard FIRST so we have a mgr to pass to FRPC
+    # 2. Start web dashboard FIRST
     mgr = server_manager.ServerManager()
     mgr.set_tunnel_status("Connecting...")
     try:
@@ -553,6 +549,17 @@ def main():
     except Exception as e:
         log("ERROR", "Dashboard failed to start: {0}".format(e))
         sys.exit(1)
+
+    # 3. Start Xray (Persistent) - AFTER mgr has initialized config
+    xray_path = os.path.join(BASE_DIR, "bin", "xray.exe")
+    if os.path.exists(xray_path):
+        threading.Thread(
+            target=persistent_process, 
+            args=("Xray core", [xray_path, "-c", os.path.join(CONFIG_DIR, "config.json")], CONFIG_DIR, "XRAY", C_BLU),
+            daemon=True
+        ).start()
+    else:
+        log("ERROR", "xray.exe not found in bin folder!")
 
     # 3. Start FRPC (Persistent)
     frpc_path = os.path.join(BASE_DIR, "bin", "frpc.exe")
@@ -674,8 +681,11 @@ def main():
     except Exception as e:
         log("ERROR", "Master loop error: {0}".format(e))
     finally:
-        # Note: Subprocesses are managed by persistent_process threads.
-        # They will be terminated when the main thread exits due to daemon=True.
+        log("INFO", "Cleaning up subprocesses...")
+        with proc_lock:
+            for p in active_procs:
+                try: p.terminate()
+                except: pass
         log("OK", "Master Controller stopped.")
 
 if __name__ == "__main__":

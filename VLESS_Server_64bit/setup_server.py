@@ -13,8 +13,10 @@ import random
 import string
 try:
     from http.server import HTTPServer, BaseHTTPRequestHandler
+    from urllib.parse import quote
 except ImportError:
     from BaseHTTPServer import HTTPServer, BaseHTTPRequestHandler
+    from urllib import quote
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 CONFIG_DIR = os.path.join(BASE_DIR, "config")
@@ -267,7 +269,7 @@ def do_setup(data):
         'transport.tls.force = true'
     ]
     
-    ws_path_encoded = settings["vless_ws_path"].replace("/", "%2F")
+    ws_path_encoded = quote(settings["vless_ws_path"])
     vless_link = "vless://{0}@{1}:{2}?type=ws&path={3}#AUT-Bridge".format(
         settings["vless_uuid"],
         settings["vps_ip"],
