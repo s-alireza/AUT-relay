@@ -206,6 +206,7 @@ class ServerManager:
         self.last_aut_update = datetime.now().strftime("%H:%M:%S")
         self.tunnel_status = "Unknown"
         self.last_tunnel_error = ""
+        self.aut_target_account = ""
 
         self._read_inbound()
         self.load_servers()
