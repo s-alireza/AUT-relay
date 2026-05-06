@@ -412,9 +412,17 @@ function factoryReset(){
 function copyVLESS(){
     api('GET','/api/vps_config',null,function(d){
         if(d.ok){
-            navigator.clipboard.writeText(d.vless_link).then(function(){
+            var area = document.createElement('textarea');
+            area.value = d.vless_link;
+            document.body.appendChild(area);
+            area.select();
+            try {
+                document.execCommand('copy');
                 toast('VLESS Link copied to clipboard!');
-            });
+            } catch (err) {
+                toast('Manual copy: ' + d.vless_link);
+            }
+            document.body.removeChild(area);
         }
     });
 }
