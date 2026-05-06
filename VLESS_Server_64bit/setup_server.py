@@ -11,6 +11,9 @@ import threading
 import time
 import random
 import string
+import subprocess
+import webbrowser
+
 try:
     from http.server import HTTPServer, BaseHTTPRequestHandler
     from urllib.parse import quote
@@ -278,6 +281,113 @@ def do_setup(data):
     )
     return vless_link, settings["frp_token"], "\n".join(frps_cfg)
 
+def automate_vps_setup(vps_ip, ssh_port, ssh_user, ssh_pass, frps_toml):
+    """Automate the VPS setup using PSCP and Plink."""
+    bin_dir = os.path.join(BASE_DIR, "bin")
+    pscp = os.path.join(bin_dir, "pscp.exe")
+    plink = os.path.join(bin_dir, "plink.exe")
+    
+    # Path to the FRP archive
+    # Look for vps_assets in the project root (one level up from BASE_DIR)
+    frp_archive = os.path.abspath(os.path.join(BASE_DIR, "..", "vps_assets", "frp_0.61.1_linux_amd64.tar.gz"))
+    
+    if not os.path.exists(frp_archive):
+        return False, "FRP archive not found at {0}".format(frp_archive)
+
+    def run_cmd(cmd_list, input_str=None):
+        try:
+            # We use stdin=subprocess.PIPE to allow sending 'y' to host key prompts
+            process = subprocess.Popen(
+                cmd_list, 
+                stdin=subprocess.PIPE,
+                stdout=subprocess.PIPE, 
+                stderr=subprocess.STDOUT,
+                universal_newlines=True
+            )
+            out, _ = process.communicate(input=input_str)
+            return process.returncode == 0, out
+        except Exception as e:
+            return False, str(e)
+
+    # 0. Pre-cache host key
+    print("  [VPS] Checking host key...")
+    run_cmd([plink, "-P", str(ssh_port), "-pw", ssh_pass, "{0}@{1}".format(ssh_user, vps_ip), "exit"], input_str="y\n")
+
+    # 1. Check if already installed or can be downloaded directly (much faster)
+    print("  [VPS] Checking if FRP exists or can be downloaded...")
+    probe_script = """
+if [ -f ~/frp/frps ]; then
+    echo "EXISTS"
+else
+    curl -L -o ~/frp.tar.gz https://github.com/fatedier/frp/releases/download/v0.61.1/frp_0.61.1_linux_amd64.tar.gz && echo "DOWNLOADED" || echo "FAIL"
+fi
+"""
+    ok, out = run_cmd([plink, "-P", str(ssh_port), "-pw", ssh_pass, "-batch", "{0}@{1}".format(ssh_user, vps_ip), probe_script])
+    
+    needs_upload = True
+    if "EXISTS" in out or "DOWNLOADED" in out:
+        needs_upload = False
+        print("  [VPS] FRP is already available on VPS.")
+
+    # 2. Upload FRP archive if needed
+    if needs_upload:
+        print("  [VPS] Uploading FRP archive (Direct download failed)...")
+        ok, out = run_cmd([pscp, "-P", str(ssh_port), "-pw", ssh_pass, "-batch", frp_archive, "{0}@{1}:frp.tar.gz".format(ssh_user, vps_ip)])
+        if not ok:
+            return False, "Upload failed: " + out
+
+    # 3. Run setup script via Plink
+
+    # Plink command: plink -P port -pw pass -batch user@host "commands"
+    setup_script = """
+cd ~
+tar -xzf frp.tar.gz
+rm -rf frp
+mv frp_0.61.1_linux_amd64 frp
+chmod +x frp/frps
+cat > frp/frps.toml << 'EOF'
+{0}
+EOF
+# Try to set capabilities, ignore if fails (might need sudo)
+sudo setcap 'cap_net_bind_service=+ep' ~/frp/frps || true
+
+# Get full path to frp directory
+FRP_DIR=$(pwd)/frp
+
+cat << 'EOF' | sudo tee /etc/systemd/system/frps.service > /dev/null
+[Unit]
+Description=FRP Server
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=$FRP_DIR
+ExecStart=$FRP_DIR/frps -c $FRP_DIR/frps.toml
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+# Use env substitution for variables in the heredoc if needed, but here I used a trick with tee
+# Wait, let's make it cleaner
+sudo sed -i "s|WorkingDirectory=.*|WorkingDirectory=$FRP_DIR|" /etc/systemd/system/frps.service
+sudo sed -i "s|ExecStart=.*|ExecStart=$FRP_DIR/frps -c $FRP_DIR/frps.toml|" /etc/systemd/system/frps.service
+
+sudo systemctl daemon-reload
+sudo systemctl enable frps
+sudo systemctl restart frps
+""".format(frps_toml)
+
+
+    print("  [VPS] Configuring and starting FRP server...")
+    ok, out = run_cmd([plink, "-P", str(ssh_port), "-pw", ssh_pass, "-batch", "{0}@{1}".format(ssh_user, vps_ip), setup_script])
+    return True, out
+
+
+
 server_instance = None
 setup_done = False
 
@@ -356,16 +466,49 @@ class SetupHandler(BaseHTTPRequestHandler):
                 def shutdown():
                     global setup_done
                     setup_done = True
-                    print("\n  Setup completed successfully. Transitioning to dashboard...")
+                    print("\n  Setup completed successfully. Launching bridge manager...")
                     time.sleep(2)
+                    # 1. Shutdown setup server first to release port 3080
                     if server_instance:
                         server_instance.shutdown()
+                    
+                    # 2. Auto-start account_manager.py (The Master Controller)
+                    try:
+                        cmd = [sys.executable, os.path.join(BASE_DIR, "account_manager.py")]
+                        subprocess.Popen(cmd)
+                    except Exception as e:
+                        print("  Failed to auto-start manager: {0}".format(e))
+
+
                 threading.Thread(target=shutdown).start()
+
+
+            except Exception as e:
+                self._send_json({"ok": False, "error": str(e)}, 500)
+        elif self.path == "/api/setup_vps":
+            try:
+                length = int(self.headers.get("Content-Length", 0))
+                body = self.rfile.read(length).decode("utf-8")
+                data = json.loads(body)
+                
+                vps_ip = data.get("vps_ip")
+                ssh_port = data.get("ssh_port", 22)
+                ssh_user = data.get("ssh_user", "root")
+                ssh_pass = data.get("ssh_pass")
+                frps_toml = data.get("frps_toml")
+                
+                if not all([vps_ip, ssh_pass, frps_toml]):
+                    self._send_json({"ok": False, "error": "Missing VPS details"}, 400)
+                    return
+                
+                ok, msg = automate_vps_setup(vps_ip, ssh_port, ssh_user, ssh_pass, frps_toml)
+                self._send_json({"ok": ok, "message": msg})
             except Exception as e:
                 self._send_json({"ok": False, "error": str(e)}, 500)
         else:
             self.send_response(404)
             self.end_headers()
+
 
 def do_reset():
     """Wipe all generated configuration files."""
@@ -467,7 +610,15 @@ def main():
     print("  http://127.0.0.1:{0}".format(port))
     print()
     print("  Waiting for configuration...")
+    
+    # Small delay to ensure server is socket-ready, then open browser
+    def _open_browser():
+        time.sleep(1.5)
+        webbrowser.open("http://127.0.0.1:{0}".format(port))
+    threading.Thread(target=_open_browser).start()
+
     server_instance.serve_forever()
+
 
 def start_setup(mgr=None):
     """Entry point for account_manager."""

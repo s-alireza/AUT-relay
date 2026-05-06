@@ -19,8 +19,9 @@ border:1px solid rgba(255,255,255,.1);border-radius:20px;padding:30px;width:100%
 .sec h2{font-size:15px;color:#fff;margin-bottom:12px;border-bottom:1px solid rgba(255,255,255,.1);padding-bottom:6px}
 label{display:block;font-size:13px;color:#bbb;margin-bottom:6px}
 input{width:100%;padding:12px;border-radius:12px;border:1px solid rgba(255,255,255,.1);
-background:rgba(255,255,255,.06);color:#fff;font-size:14px;font-family:inherit;margin-bottom:14px;transition:border-color .3s}
-input:focus{outline:none;border-color:rgba(0,230,118,.5)}
+background:rgba(15,23,42,.6);color:#fff;font-size:14px;font-family:inherit;margin-bottom:14px;transition:all .3s;box-shadow: inset 0 2px 4px rgba(0,0,0,0.2);}
+input:focus{outline:none;border-color:rgba(0,230,118,.5);background:rgba(15,23,42,.8);box-shadow: 0 0 10px rgba(0,230,118,0.1);}
+input::placeholder{color: #555;}
 .btn{display:block;width:100%;padding:14px;border:none;border-radius:12px;font-size:15px;font-weight:600;
 background:linear-gradient(135deg,#00e676,#00bcd4);color:#000;cursor:pointer;transition:transform .2s,box-shadow .2s}
 .btn:hover{transform:translateY(-2px);box-shadow:0 6px 20px rgba(0,230,118,.3)}
@@ -30,11 +31,6 @@ background:rgba(244,67,54,.95);color:#fff;padding:12px 24px;border-radius:12px;f
 transition:transform .4s ease;z-index:300}
 .toast.show{transform:translateX(-50%) translateY(0)}
 .toast.success{background:rgba(0,230,118,.95);color:#000}
-#success-msg{display:none;text-align:center;padding:20px 0}
-#success-msg h2{color:#00e676;margin-bottom:10px}
-#success-msg p{color:#aaa;font-size:14px;margin-bottom:20px}
-#vless-box{background:rgba(0,0,0,.3);padding:15px;border-radius:10px;font-family:monospace;font-size:12px;
-word-break:break-all;color:#00bcd4;border:1px solid rgba(0,188,212,.3);margin-bottom:20px}
 .loader{display:inline-block;width:20px;height:20px;border:3px solid rgba(0,0,0,.1);
 border-top-color:#000;border-radius:50%;animation:spin 1s linear infinite;vertical-align:middle;margin-right:8px}
 @keyframes spin{to{transform:rotate(360deg)}}
@@ -50,54 +46,178 @@ border-top-color:#000;border-radius:50%;animation:spin 1s linear infinite;vertic
     <div class="sec">
         <h2>1. VPS Connection</h2>
         <label>Iranian VPS IP Address</label>
-        <input type="text" id="vps_ip" placeholder="e.g. 185.226.119.182" required>
+        <input type="text" id="vps_ip" id="vps_ip_placeholder" placeholder="185.12.33.41" required>
+
+        
+        <div style="background: rgba(0,0,0,0.2); padding: 18px; border-radius: 15px; border: 1px solid rgba(255,255,255,0.05); margin-top: 10px;">
+            <label style="display: flex; align-items: center; cursor: pointer; color: #fff; font-weight: 600; margin-bottom: 15px;">
+                <input type="checkbox" id="auto_vps" style="width: auto; margin-right: 12px; margin-bottom: 0;"> 
+                Automate VPS Side Setup (SSH)
+            </label>
+            <div id="ssh_fields" style="display: none; padding-top: 5px;">
+                <div style="display: flex; gap: 10px;">
+                    <div style="flex: 1;">
+                        <label>SSH User</label>
+                        <input type="text" id="ssh_user" value="root" placeholder="root" style="margin-bottom: 12px;">
+                    </div>
+                    <div style="flex: 1;">
+                        <label>SSH Port</label>
+                        <input type="number" id="ssh_port" value="22" placeholder="22" style="margin-bottom: 12px;">
+                    </div>
+                </div>
+                <label>SSH Password</label>
+                <input type="password" id="ssh_pass" placeholder="VPS root password" style="margin-bottom: 0;">
+                <p style="font-size: 11px; color: #666; margin-top: 10px; line-height: 1.4;">Used securely once to install FRP and configure systemd.</p>
+            </div>
+        </div>
     </div>
 
     <div class="sec">
         <h2>2. AUT Internet Account</h2>
         <label>University Username</label>
-        <input type="text" id="aut_user" placeholder="e.g. 40012345678" required>
+        <input type="text" id="aut_user" placeholder="Username (without @aut.ac.ir)" required>
+
         <label>University Password</label>
-        <input type="password" id="aut_pass" placeholder="Password" required>
+        <input type="password" id="aut_pass" placeholder="Your account password" required>
     </div>
 
     <div class="sec">
         <h2>3. Dashboard Security</h2>
         <label>Admin Username (For this panel)</label>
-        <input type="text" id="dash_user" placeholder="e.g. admin" required>
+        <input type="text" id="dash_user" value="admin" placeholder="admin" required>
         <label>Admin Password</label>
-        <input type="password" id="dash_pass" placeholder="Create a strong password" required>
+        <input type="password" id="dash_pass" placeholder="Set a dashboard password" required>
     </div>
 
     <button class="btn" id="submitBtn" onclick="submitSetup()">Complete Setup</button>
 </div>
 
-<div class="container" id="success-msg" style="display:none;">
-    <h2>✅ Setup Complete!</h2>
-    <p>Your configuration has been generated successfully.</p>
+<div class="container" id="success-msg" style="display:none; max-width: 500px;">
+    <div class="hdr">
+        <div style="font-size: 40px; margin-bottom: 15px;">✅</div>
+        <h1>Setup Complete!</h1>
+        <p>Your configuration has been generated successfully.</p>
+    </div>
     
-    <div class="sec">
-        <label>1. VLESS Client Link (Phone/App)</label>
-        <div id="vless-box" style="word-break: break-all; background: rgba(0,230,118,0.1); border: 1px solid #00e676; padding: 15px; border-radius: 12px; font-family: monospace; color: #00e676; margin-top: 10px;"></div>
+    <div class="sec" style="margin-bottom: 25px;">
+        <h2 style="font-size: 14px; color: #00e676; border-bottom: 1px solid rgba(0,230,118,0.1); padding-bottom: 8px;">1. Client Configuration</h2>
+        <p style="font-size: 12px; color: #888; margin-bottom: 10px;">Import this link into your VLESS app (v2rayNG, Streisand, etc.):</p>
+        <div id="vless-box" style="word-break: break-all; background: rgba(0,230,118,0.05); border: 1px solid rgba(0,230,118,0.2); padding: 15px; border-radius: 12px; font-family: monospace; color: #00e676; margin-top: 5px; font-size: 11px;"></div>
+        <button class="btn" onclick="copyVless()" style="padding: 8px; font-size: 12px; margin-top: 10px; background: rgba(255,255,255,0.05); color: #fff; width: auto; display: inline-block;">Copy VLESS Link</button>
     </div>
 
-    <div class="sec">
-        <label>2. VPS Configuration (frp/frps.toml)</label>
-        <div id="toml-box" style="white-space: pre; background: rgba(255,235,59,0.05); border: 1px solid rgba(255,235,59,0.3); padding: 15px; border-radius: 12px; font-family: monospace; color: #ffeb3b; text-align: left; margin-top: 10px;"></div>
+    <div id="vps-automation-container" style="display: none; margin-bottom: 25px;">
+        <div class="sec">
+            <h2 style="font-size: 14px; color: #00bcd4; border-bottom: 1px solid rgba(0,188,212,0.1); padding-bottom: 8px;">2. VPS Automation Status</h2>
+            <div id="vps-automation-status" style="padding:15px; border-radius:12px; background:rgba(0,0,0,0.2); border:1px solid rgba(255,255,255,0.1); text-align: left; margin-top: 10px;">
+                <div id="vps-loader-box" style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+                    <div class="loader" style="margin:0; width: 16px; height: 16px; border-width: 2px; border-top-color: #00bcd4;"></div>
+                    <span id="vps-step" style="font-size: 13px; color: #eee;">Installing FRP on VPS...</span>
+                </div>
+                <div id="vps-log-box" style="display:none; font-family: monospace; font-size: 10px; color: #888; max-height: 120px; overflow-y: auto; background: rgba(0,0,0,0.3); padding: 10px; border-radius: 8px; white-space: pre-wrap; border: 1px solid rgba(255,255,255,0.05);"></div>
+            </div>
+        </div>
     </div>
 
-    <div id="dash-btn-container"></div>
-    <p style="margin-top: 20px; font-size: 12px; color: #666;"><strong>Note:</strong> You can now close this tab. The system is transitioning to the dashboard.</p>
+    <div id="vps-manual-container" style="display: none; margin-bottom: 25px;">
+        <div class="sec">
+            <h2 style="font-size: 14px; color: #ffeb3b; border-bottom: 1px solid rgba(255,235,59,0.1); padding-bottom: 8px;">2. Manual VPS Configuration</h2>
+            <p style="font-size: 12px; color: #aaa; text-align: left; margin-bottom: 10px;">Paste this into your VPS at <code>frp/frps.toml</code>:</p>
+            <div id="toml-box" style="white-space: pre; background: rgba(255,235,59,0.03); border: 1px solid rgba(255,235,59,0.1); padding: 12px; border-radius: 12px; font-family: monospace; color: #ffeb3b; text-align: left; font-size: 11px;"></div>
+            <button class="btn" onclick="copyToml()" style="padding: 8px; font-size: 12px; margin-top: 10px; background: rgba(255,235,59,0.1); color: #ffeb3b; border: 1px solid rgba(255,235,59,0.2); width: auto; display: inline-block;">Copy frps.toml</button>
+        </div>
+    </div>
+
+    <div id="dash-btn-container" style="margin-top: 30px;"></div>
+    <p style="margin-top: 20px; font-size: 11px; color: #555;">The system is transitioning to the dashboard panel. You can safely close this tab once you proceed.</p>
 </div>
 
 <div class="toast" id="toast"></div>
 
 <script>
+// Randomize VPS IP placeholder
+const randomIP = `${Math.floor(Math.random()*150+30)}.${Math.floor(Math.random()*255)}.${Math.floor(Math.random()*255)}.${Math.floor(Math.random()*255)}`;
+document.getElementById('vps_ip').placeholder = `${randomIP}`;
+
+
 function toast(msg, success) {
     var t = document.getElementById('toast');
     t.textContent = msg;
     t.className = 'toast show' + (success ? ' success' : '');
     setTimeout(function(){ t.className = 'toast' + (success ? ' success' : '') }, 4000);
+}
+
+document.getElementById('auto_vps').addEventListener('change', function(e) {
+    document.getElementById('ssh_fields').style.display = e.target.checked ? 'block' : 'none';
+});
+
+function copyVless(){
+    var t = document.createElement('textarea');
+    t.value = document.getElementById('vless-box').textContent;
+    document.body.appendChild(t); t.select(); document.execCommand('copy'); document.body.removeChild(t);
+    toast('VLESS Link copied!', true);
+}
+
+function copyToml(){
+    var t = document.createElement('textarea');
+    t.value = document.getElementById('toml-box').textContent;
+    document.body.appendChild(t); t.select(); document.execCommand('copy'); document.body.removeChild(t);
+    toast('VPS Config copied!', true);
+}
+
+function automateVPS(res) {
+    var vpsIp = document.getElementById('vps_ip').value.trim();
+    var sshUser = document.getElementById('ssh_user').value.trim();
+    var sshPort = parseInt(document.getElementById('ssh_port').value) || 22;
+    var sshPass = document.getElementById('ssh_pass').value.trim();
+
+    document.getElementById('vps-automation-container').style.display = 'block';
+    
+    var step = document.getElementById('vps-step');
+    var logBox = document.getElementById('vps-log-box');
+    var loaderBox = document.getElementById('vps-loader-box');
+    var statusEl = document.getElementById('vps-automation-status');
+
+    step.textContent = "Connecting to VPS and installing FRP...";
+
+    var vpsData = {
+        vps_ip: vpsIp,
+        ssh_user: sshUser,
+        ssh_port: sshPort,
+        ssh_pass: sshPass,
+        frps_toml: res.frps_toml
+    };
+
+    var x = new XMLHttpRequest();
+    x.open('POST', '/api/setup_vps', true);
+    x.setRequestHeader('Content-Type', 'application/json');
+    x.onreadystatechange = function() {
+        if (x.readyState === 4) {
+            loaderBox.querySelector('.loader').style.display = 'none';
+            logBox.style.display = 'block';
+            if (x.status === 200) {
+                var vres = JSON.parse(x.responseText);
+                logBox.textContent = vres.message;
+                if (vres.ok) {
+                    statusEl.style.borderColor = "rgba(0,230,118,0.4)";
+                    statusEl.style.background = "rgba(0,230,118,0.05)";
+                    step.innerHTML = "✅ <b>VPS Ready!</b> Setup completed.";
+                    toast('VPS automation succeeded!', true);
+                } else {
+                    statusEl.style.borderColor = "rgba(244,67,54,0.4)";
+                    statusEl.style.background = "rgba(244,67,54,0.05)";
+                    step.innerHTML = "❌ <b>VPS Automation Failed</b>";
+                    document.getElementById('vps-manual-container').style.display = 'block';
+                    toast('VPS automation failed.', false);
+                }
+            } else {
+                statusEl.style.borderColor = "#f44336";
+                step.innerHTML = "❌ <b>Server Error</b>";
+                document.getElementById('vps-manual-container').style.display = 'block';
+            }
+        }
+    };
+    x.send(JSON.stringify(vpsData));
 }
 
 function submitSetup() {
@@ -106,9 +226,15 @@ function submitSetup() {
     var autPass = document.getElementById('aut_pass').value.trim();
     var dashUser = document.getElementById('dash_user').value.trim();
     var dashPass = document.getElementById('dash_pass').value.trim();
+    var autoVPS = document.getElementById('auto_vps').checked;
+    var sshPass = document.getElementById('ssh_pass').value.trim();
 
     if (!vpsIp || !autUser || !autPass || !dashUser || !dashPass) {
         toast('Please fill in all fields.', false);
+        return;
+    }
+    if (autoVPS && !sshPass) {
+        toast('SSH Password is required for automation.', false);
         return;
     }
 
@@ -146,6 +272,12 @@ function submitSetup() {
                         dashBtn.style.background = 'linear-gradient(135deg, #4caf50, #2e7d32)';
                         dashBtn.onclick = function() { window.location.href = '/'; };
                         document.getElementById('dash-btn-container').appendChild(dashBtn);
+
+                        if (autoVPS) {
+                            automateVPS(res);
+                        } else {
+                            document.getElementById('vps-manual-container').style.display = 'block';
+                        }
                     } else {
                         toast('Setup failed: ' + (res.error || 'Unknown error'), false);
                         btn.disabled = false;

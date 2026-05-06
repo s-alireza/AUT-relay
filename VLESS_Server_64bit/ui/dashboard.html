@@ -71,10 +71,12 @@ background:rgba(0,0,0,.75);z-index:200;align-items:center;justify-content:center
 border:1px solid rgba(255,255,255,.1)}
 .md h2{font-size:17px;margin-bottom:14px;color:#fff}
 .md label{display:block;font-size:12px;color:#888;margin:10px 0 4px}
-.md input,.md textarea{width:100%;padding:10px 12px;border-radius:10px;
-border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.06);
-color:#fff;font-size:14px;font-family:inherit}
+input,textarea{width:100%;padding:10px 12px;border-radius:10px;
+border:1px solid rgba(255,255,255,.1);background:rgba(15,23,42,.6);
+color:#fff;font-size:14px;font-family:inherit;transition:all .3s}
+input:focus,textarea:focus{outline:none;border-color:rgba(0,230,118,.5);background:rgba(15,23,42,.8)}
 .md textarea{height:100px;resize:vertical;font-family:'Courier New',monospace;font-size:12px}
+
 .ma{display:flex;gap:10px;margin-top:16px}
 .ma button{flex:1;padding:11px;border:none;border-radius:12px;font-size:14px;font-weight:600;cursor:pointer}
 .bs{background:linear-gradient(135deg,#00e676,#00bcd4);color:#000}
@@ -118,13 +120,41 @@ border-radius:50%;animation:spin .8s linear infinite;margin-right:6px;vertical-a
 <div id="setup_warning" style="display:none;">
     <div class="sb" style="border-color: rgba(255,171,64,.4); background: rgba(255,171,64,.05);">
         <div style="color:#ffab40; font-weight:700; margin-bottom:10px; display:flex; align-items:center; gap:8px;">
-            <span>⚠️ Configuration Required</span>
+            <span>⚠️ VPS Tunnel Disconnected</span>
         </div>
-        <p style="font-size:12px; color:#aaa; margin-bottom:12px;">Your VPS is not yet connected. Please paste this configuration into your VPS at <code>frp/frps.toml</code> to start the tunnel:</p>
-        <textarea id="warning_vps_text" readonly style="width:100%; height:120px; background:rgba(0,0,0,.3); border:1px solid rgba(255,255,255,.1); border-radius:8px; color:#eee; font-family:monospace; font-size:11px; padding:10px; margin-bottom:10px;"></textarea>
-        <button class="pbtn" onclick="copyWarningVPS()" style="width:100%; border-color:#ffab40; color:#ffab40;">Copy Configuration</button>
+        
+        <div id="vps_mode_choice">
+            <p style="font-size:12px; color:#aaa; margin-bottom:12px;">Your VPS is not connected. How would you like to fix it?</p>
+            <button class="btn sw" onclick="showVPSMode('auto')">🚀 Automate Setup via SSH</button>
+            <button class="add" onclick="showVPSMode('manual')" style="margin-top:8px;">📋 Show Manual Config</button>
+        </div>
+
+        <div id="vps_mode_auto" style="display:none;">
+            <p style="font-size:12px; color:#aaa; margin-bottom:10px;">The system will install FRP and start the service for you.</p>
+            <div style="display:grid; grid-template-columns: 1fr 2fr; gap:8px; margin-bottom:12px;">
+                <label style="margin:0; align-self:center;">VPS IP</label>
+                <input type="text" id="vps_ssh_ip" placeholder="VPS IP Address" style="padding:6px; font-size:12px;">
+                <label style="margin:0; align-self:center;">SSH User</label>
+                <input type="text" id="vps_ssh_user" value="root" style="padding:6px; font-size:12px;">
+                <label style="margin:0; align-self:center;">SSH Pass</label>
+                <input type="password" id="vps_ssh_pass" placeholder="Password" style="padding:6px; font-size:12px;">
+            </div>
+
+
+            <button class="btn sw" id="vps_auto_run_btn" onclick="runVPSAutomation()">Start VPS Automation</button>
+            <div id="vps_auto_status" style="margin-top:12px; font-size:11px; font-family:monospace; color:#888; background:rgba(0,0,0,.2); padding:8px; border-radius:6px; display:none;"></div>
+            <button class="pbtn" onclick="showVPSMode('choice')" style="width:100%; margin-top:12px;">Back</button>
+        </div>
+
+        <div id="vps_mode_manual" style="display:none;">
+            <p style="font-size:12px; color:#aaa; margin-bottom:12px;">Paste this configuration into your VPS at <code>frp/frps.toml</code>:</p>
+            <textarea id="warning_vps_text" readonly style="width:100%; height:120px; background:rgba(0,0,0,.3); border:1px solid rgba(255,255,255,.1); border-radius:8px; color:#eee; font-family:monospace; font-size:11px; padding:10px; margin-bottom:10px;"></textarea>
+            <button class="pbtn" onclick="copyWarningVPS()" style="width:100%; border-color:#ffab40; color:#ffab40;">Copy Configuration</button>
+            <button class="pbtn" onclick="showVPSMode('choice')" style="width:100%; margin-top:8px;">Back</button>
+        </div>
     </div>
 </div>
+
 
 <div class="sb" id="sbar">
 <div class="sr"><span class="sl">Active Server</span><span class="sv g" id="ss">&#8212;</span></div>
@@ -278,10 +308,12 @@ else if(ts.includes('Error')) {
         api('GET','/api/vps_config',null,function(cd){
             if(cd.ok) {
                 document.getElementById('warning_vps_text').value = cd.frps_toml;
+                document.getElementById('vps_ssh_ip').value = d.vps_ip || '';
                 warn.style.display = 'block';
             }
         });
     }
+
 }
 else { 
     ts_el.className = 'sv y';
@@ -413,6 +445,59 @@ function copyWarningVPS(){
     document.execCommand('copy');
     toast('VPS Config copied!');
 }
+
+function showVPSMode(m){
+    document.getElementById('vps_mode_choice').style.display = m==='choice'?'block':'none';
+    document.getElementById('vps_mode_auto').style.display = m==='auto'?'block':'none';
+    document.getElementById('vps_mode_manual').style.display = m==='manual'?'block':'none';
+}
+
+function runVPSAutomation(){
+    var ip = document.getElementById('vps_ssh_ip').value.trim();
+    var user = document.getElementById('vps_ssh_user').value || 'root';
+    var pass = document.getElementById('vps_ssh_pass').value;
+    var stat = document.getElementById('vps_auto_status');
+    var btn = document.getElementById('vps_auto_run_btn');
+    
+    if(!ip || !pass){toast('Please enter VPS IP and SSH password'); return;}
+    
+    btn.disabled = true;
+    btn.innerHTML = '<span class="sp"></span>Connecting...';
+    stat.style.display = 'block';
+    stat.innerHTML = '> Starting VPS automation...';
+    
+    api('GET','/api/vps_config',null,function(cfg){
+        if(!cfg.ok){toast('Failed to get config'); btn.disabled=false; return;}
+        
+        var payload = {
+            vps_ip: ip,
+            ssh_port: 22,
+            ssh_user: user,
+            ssh_pass: pass,
+            frps_toml: cfg.frps_toml
+        };
+        
+        stat.innerHTML += '<br>> IP: ' + ip + ' (' + user + '@22)';
+
+
+            stat.innerHTML += '<br>> Connecting and installing FRP...';
+            
+            api('POST','/api/setup_vps', payload, function(res){
+                btn.disabled = false;
+                btn.innerHTML = 'Start VPS Automation';
+                if(res.ok){
+                    stat.innerHTML += '<br>> <span style="color:#00e676">SUCCESS: FRP Server is running!</span>';
+                    toast('VPS Automation Successful!');
+                    setTimeout(load, 3000);
+                } else {
+                    stat.innerHTML += '<br>> <span style="color:#ff5252">FAILED: ' + (res.error || res.message || 'Unknown error') + '</span>';
+                    toast('Automation Failed');
+                }
+        });
+    });
+}
+
+
 
 // Start sequence
 var savedToken = localStorage.getItem('auth_token');

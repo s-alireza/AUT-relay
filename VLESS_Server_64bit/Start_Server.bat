@@ -20,15 +20,17 @@ if %errorlevel%==0 (
 REM Check if setup has been completed
 if not exist "%~dp0config\settings.json" (
     echo.
-    echo  First time setup required! Opening Web UI...
-    echo.
-    start http://127.0.0.1:3080
+    echo  First time setup required! Starting Wizard...
+
     %PYEXE% "%~dp0setup_server.py"
     if not exist "%~dp0config\settings.json" (
         echo Setup was cancelled. Cannot start.
         pause
         exit /b 1
     )
+    REM If we just finished setup, the setup_server already auto-launched account_manager.py
+    exit /b 0
+
     echo.
 )
 

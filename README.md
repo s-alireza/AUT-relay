@@ -13,8 +13,9 @@ Turn your university internet into a personal VPN. This project bridges your uni
 
 Get the latest version for your system from the **[Releases Page](https://github.com/s-alireza/AUT-relay/releases/latest)**:
 
-* 🚀 **[Download 64-bit (Windows 10/11)](https://github.com/s-alireza/AUT-relay/releases/download/v1.0.0/AUT-Relay-v1.0.0-x64.zip)**
-* 📦 **[Download 32-bit (Windows 7/Old PC)](https://github.com/s-alireza/AUT-relay/releases/download/v1.0.0/AUT-Relay-v1.0.0-x32.zip)**
+* 🚀 **[Download 64-bit (Windows 10/11)](https://github.com/s-alireza/AUT-relay/releases/download/v1.1.0/AUT-Relay-v1.1.0-x64.zip)**
+* 📦 **[Download 32-bit (Windows 7/Old PC)](https://github.com/s-alireza/AUT-relay/releases/download/v1.1.0/AUT-Relay-v1.1.0-x32.zip)**
+
 
 ---
 
@@ -36,15 +37,19 @@ Get the latest version for your system from the **[Releases Page](https://github
    * If you have a modern PC (Windows 10/11), open the `VLESS_Server_64bit` folder.
    * If you have an older PC (Windows 7/32-bit), open the `VLESS_Server_32bit` folder.
 3. **Launch the Setup**: Inside your chosen folder, double-click **`Start_Server.bat`**.
-4. **Web-Based Wizard**: The script will open your browser to `http://127.0.0.1:3080`.
-5. **Generate Config**: Fill in your VPS IP, AUT credentials, and dashboard password.
-6. **Save Your Config**: Once finished, the wizard will display a **VPS Configuration** block. **Copy this block** for the next step.
+4. **Web-Based Wizard**: The script will automatically launch your browser into our premium setup wizard at `http://127.0.0.1:3080`.
+5. **Generate Config & Automate**: 
+   * Fill in your VPS IP, AUT credentials, and dashboard password.
+   * ✨ **NEW:** Check the **"Automate VPS Setup (SSH)"** box, enter your VPS root password, and the wizard will install everything on your VPS automatically!
+6. **Finish**: If you chose the automated setup, wait for the success message. If you chose manual setup, the wizard will display a **VPS Configuration** block for the next step.
 
 ---
 
-### Step 2: VPS Server Setup
+### Step 2: VPS Server Setup (Skip if you used Automation)
 
-SSH into your **Iranian VPS** and follow these steps to apply the configuration you just generated.
+*If you checked the "Automate VPS Setup" box in Step 1, the bridge is already installed on your server! You can skip directly to **Step 3**.*
+
+If you prefer to configure your server manually, SSH into your **Iranian VPS** and follow these steps:
 
 #### A. Download & Extract FRP
 
@@ -73,7 +78,7 @@ tar -xzf frp.tar.gz && mv frp_0.61.1_linux_amd64 frp && chmod +x frp/frps
 
 #### B. Apply Configuration
 
-Run this command, **paste the VPS Configuration block**, and then **press `Ctrl+D`** to save and exit:
+Run this command, **paste the VPS Configuration block** from the web setup, and then **press `Ctrl+D`** to save and exit:
 
 ```bash
 cat > frp/frps.toml

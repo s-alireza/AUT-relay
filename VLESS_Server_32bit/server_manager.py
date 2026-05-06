@@ -504,6 +504,56 @@ class Handler(BaseHTTPRequestHandler):
         self._send_json({"error": "Unauthorized"}, 401)
         return False
 
+    def automate_vps_setup(self, vps_ip, ssh_port, ssh_user, ssh_pass, frps_toml):
+        plink = os.path.join(BIN_DIR, "plink.exe")
+        pscp = os.path.join(BIN_DIR, "pscp.exe")
+        frp_archive = os.path.join(os.path.dirname(BASE_DIR), "vps_assets", "frp_0.61.1_linux_amd64.tar.gz")
+        def run_cmd(cmd_list, input_str=None):
+            try:
+                process = subprocess.Popen(cmd_list, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, universal_newlines=True)
+                out, _ = process.communicate(input=input_str)
+                return process.returncode == 0, out
+            except Exception as e: return False, str(e)
+        run_cmd([plink, "-P", str(ssh_port), "-pw", ssh_pass, "{0}@{1}".format(ssh_user, vps_ip), "exit"], input_str="y\n")
+        probe_script = 'if [ -f ~/frp/frps ]; then echo "EXISTS"; else curl -L -o ~/frp.tar.gz https://github.com/fatedier/frp/releases/download/v0.61.1/frp_0.61.1_linux_amd64.tar.gz && echo "DOWNLOADED" || echo "FAIL"; fi'
+        ok, out = run_cmd([plink, "-P", str(ssh_port), "-pw", ssh_pass, "-batch", "{0}@{1}".format(ssh_user, vps_ip), probe_script])
+        if "EXISTS" not in out and "DOWNLOADED" not in out:
+            if not os.path.exists(frp_archive): return False, "Direct download failed and local archive missing"
+            ok, out = run_cmd([pscp, "-P", str(ssh_port), "-pw", ssh_pass, "-batch", frp_archive, "{0}@{1}:frp.tar.gz".format(ssh_user, vps_ip)])
+            if not ok: return False, "Upload failed: " + out
+        setup_script = """
+cd ~
+[ -f frp.tar.gz ] && tar -xzf frp.tar.gz && rm -rf frp && mv frp_0.61.1_linux_amd64 frp
+chmod +x frp/frps
+cat > frp/frps.toml << 'EOF'
+{0}
+EOF
+sudo setcap 'cap_net_bind_service=+ep' ~/frp/frps || true
+FRP_DIR=$(pwd)/frp
+cat << 'EOF' | sudo tee /etc/systemd/system/frps.service > /dev/null
+[Unit]
+Description=FRP Server
+After=network.target
+[Service]
+Type=simple
+User=root
+WorkingDirectory=$FRP_DIR
+ExecStart=$FRP_DIR/frps -c $FRP_DIR/frps.toml
+Restart=always
+RestartSec=5
+[Install]
+WantedBy=multi-user.target
+EOF
+sudo sed -i "s|WorkingDirectory=.*|WorkingDirectory=$FRP_DIR|" /etc/systemd/system/frps.service
+sudo sed -i "s|ExecStart=.*|ExecStart=$FRP_DIR/frps -c $FRP_DIR/frps.toml|" /etc/systemd/system/frps.service
+sudo systemctl daemon-reload
+sudo systemctl enable frps
+sudo systemctl restart frps
+""".format(frps_toml)
+        ok, out = run_cmd([plink, "-P", str(ssh_port), "-pw", ssh_pass, "-batch", "{0}@{1}".format(ssh_user, vps_ip), setup_script])
+        return ok, out
+
+
     def do_GET(self):
         if self.path == "/":
             html_path = os.path.join(UI_DIR, "dashboard.html")
@@ -551,9 +601,6 @@ class Handler(BaseHTTPRequestHandler):
                 'bind_port = {0}'.format(s.get("frp_server_port", 443)),
                 'token = {0}'.format(s.get("frp_token", "")),
                 'tls_enable = true',
-                '',
-                '# Xray VLESS Inbound',
-                '# xray --config config.json'
             ]
             
             self._send_json({
@@ -644,6 +691,23 @@ class Handler(BaseHTTPRequestHandler):
                 data = json.loads(body)
                 ok = _mgr.add_aut_account(data["username"], data["password"])
                 self._send_json({"ok": ok})
+            except Exception as e:
+                self._send_json({"ok": False, "error": str(e)}, 500)
+        elif self.path == "/api/setup_vps":
+            try:
+                length = int(self.headers.get("Content-Length", 0))
+                body = self.rfile.read(length).decode("utf-8")
+                data = json.loads(body)
+                vps_ip = data.get("vps_ip")
+                ssh_port = data.get("ssh_port", 22)
+                ssh_user = data.get("ssh_user", "root")
+                ssh_pass = data.get("ssh_pass")
+                frps_toml = data.get("frps_toml")
+                if not all([vps_ip, ssh_pass, frps_toml]):
+                    self._send_json({"ok": False, "error": "Missing VPS details"}, 400)
+                    return
+                ok, msg = self.automate_vps_setup(vps_ip, ssh_port, ssh_user, ssh_pass, frps_toml)
+                self._send_json({"ok": ok, "message": msg})
             except Exception as e:
                 self._send_json({"ok": False, "error": str(e)}, 500)
         elif self.path == "/api/reset":
