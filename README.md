@@ -14,7 +14,7 @@ AUT Relay is an open-source proxy solution that bridges your university network 
 
 Get the latest universal version for your system from the **[Releases Page](https://github.com/s-alireza/AUT-relay/releases/latest)**:
 
-* 🚀 **[Download AUT Relay Universal v2.0.0](https://github.com/s-alireza/AUT-relay/releases/latest)**
+* 🚀 **[Download AUT Relay v2.0.0](https://github.com/s-alireza/AUT-relay/releases/latest)**
 
 ---
 
