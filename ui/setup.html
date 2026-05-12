@@ -1,0 +1,550 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>AUT Proxy Bridge - Setup</title>
+    <style>
+        :root {
+            --bg: #0b0f19;
+            --card: #151a2a;
+            --border: rgba(255, 255, 255, 0.08);
+            --accent-blue: #3b82f6;
+            --accent-green: #10b981;
+            --text: #f8fafc;
+            --muted: #a0aec0;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box
+        }
+
+        body {
+            font-family: 'Plus Jakarta Sans', 'Inter', -apple-system, sans-serif;
+            background: var(--bg);
+            background-image:
+                radial-gradient(circle at 0% 0%, rgba(59, 130, 246, 0.03) 0%, transparent 40%),
+                radial-gradient(circle at 100% 100%, rgba(16, 185, 129, 0.03) 0%, transparent 40%);
+            min-height: 100vh;
+            color: var(--text);
+            padding: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow-x: hidden;
+        }
+
+        .container {
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.01));
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid var(--border);
+            border-radius: 24px;
+            padding: 40px;
+            width: 100%;
+            max-width: 500px;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+            position: relative;
+            z-index: 10;
+            transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .hdr {
+            text-align: center;
+            margin-bottom: 32px
+        }
+
+        .hdr h1 {
+            font-size: 28px;
+            font-weight: 800;
+            background: linear-gradient(90deg, var(--accent-blue), var(--accent-green));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 12px;
+            letter-spacing: -0.5px;
+        }
+
+        .hdr p {
+            font-size: 16px;
+            color: var(--muted);
+            line-height: 1.6
+        }
+
+        .sec {
+            margin-bottom: 28px
+        }
+
+        .sec h2 {
+            font-size: 15px;
+            font-weight: 700;
+            color: #fff;
+            margin-bottom: 16px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .sec h2::after {
+            content: '';
+            flex: 1;
+            height: 1px;
+            background: linear-gradient(90deg, var(--border), transparent);
+        }
+
+        label {
+            display: block;
+            font-size: 14px;
+            color: var(--muted);
+            margin-bottom: 8px;
+            font-weight: 600;
+        }
+
+        input {
+            width: 100%;
+            padding: 14px 16px;
+            border-radius: 14px;
+            border: 1px solid var(--border);
+            background: rgba(0, 0, 0, 0.2);
+            color: #fff;
+            font-size: 16px;
+            font-family: inherit;
+            margin-bottom: 16px;
+            transition: all 0.3s;
+        }
+
+        input:focus {
+            outline: none;
+            border-color: var(--accent-blue);
+            background: rgba(0, 0, 0, 0.4);
+        }
+
+        input::placeholder {
+            color: #555;
+        }
+
+        .btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            width: 100%;
+            padding: 16px;
+            border: none;
+            border-radius: 16px;
+            font-size: 16px;
+            font-weight: 700;
+            background: linear-gradient(135deg, #fff, #e2e8f0);
+            color: #000;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 0 4px 12px rgba(255, 255, 255, 0.1);
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 16px rgba(255, 255, 255, 0.15);
+        }
+
+        .btn:active {
+            transform: translateY(0);
+        }
+
+        .btn:disabled {
+            opacity: .6;
+            cursor: wait;
+            transform: none
+        }
+
+        .toast {
+            position: fixed;
+            top: 30px;
+            left: 50%;
+            transform: translateX(-50%) translateY(-150px);
+            background: var(--text);
+            color: #000;
+            padding: 14px 28px;
+            border-radius: 16px;
+            font-weight: 700;
+            font-size: 15px;
+            transition: transform .5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            z-index: 300;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+        }
+
+        .toast.show {
+            transform: translateX(-50%) translateY(0)
+        }
+
+        .toast.success {
+            background: var(--accent-green);
+            color: #000
+        }
+
+        .loader {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(0, 0, 0, .1);
+            border-top-color: #000;
+            border-radius: 50%;
+            animation: spin 1s linear infinite
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg)
+            }
+        }
+
+        /* Transition Screen */
+        #finalizing-screen {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: var(--bg);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+        }
+
+        .rocket-path {
+            width: 80px;
+            height: 80px;
+            margin-bottom: 30px;
+            animation: bounce 2s infinite;
+        }
+
+        @keyframes bounce {
+
+            0%,
+            100% {
+                transform: translateY(0);
+            }
+
+            50% {
+                transform: translateY(-20px);
+            }
+        }
+
+        .progress-container {
+            width: 280px;
+            height: 6px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 3px;
+            overflow: hidden;
+            margin-top: 20px;
+        }
+
+        .progress-fill {
+            width: 0%;
+            height: 100%;
+            background: linear-gradient(90deg, var(--primary), var(--secondary));
+            transition: width 0.3s;
+        }
+
+        #status-text {
+            font-size: 16px;
+            color: #fff;
+            margin-top: 20px;
+            font-weight: 500;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div id="finalizing-screen">
+        <div class="rocket-path">🚀</div>
+        <h2 id="finalizing-title"
+            style="background: linear-gradient(90deg, #00e676, #00bcd4); -webkit-background-clip: text; -webkit-text-fill-color: transparent; font-size: 24px; font-weight: 800;">
+            Finalizing Infrastructure</h2>
+        <p id="status-text">Preparing your dashboard...</p>
+        <div class="progress-container">
+            <div class="progress-fill" id="progress-fill"></div>
+        </div>
+    </div>
+
+    <div class="container" id="setup-form">
+        <div class="hdr">
+            <h1>🚀 Initial Setup</h1>
+            <p>Configure your AUT Proxy Bridge to get started. High-speed, secure, and automated.</p>
+        </div>
+
+        <div class="sec">
+            <h2>1. VPS CONNECTION</h2>
+            <label>Iranian VPS IP Address</label>
+            <input type="text" id="vps_ip" placeholder="185.12.33.41" required>
+        </div>
+
+        <div class="sec">
+            <h2>2. UNIVERSITY ACCOUNT</h2>
+            <label>AUT Username</label>
+            <input type="text" id="aut_user" placeholder="Username" required>
+
+            <label>AUT Password</label>
+            <input type="password" id="aut_pass" placeholder="Internet portal password" required>
+        </div>
+
+        <div class="sec">
+            <h2>3. PANEL SECURITY</h2>
+            <div style="display: flex; gap: 12px;">
+                <div style="flex: 1;">
+                    <label>Admin User</label>
+                    <input type="text" id="dash_user" value="admin" required>
+                </div>
+                <div style="flex: 1;">
+                    <label>Admin Pass</label>
+                    <input type="password" id="dash_pass" placeholder="Set password" required>
+                </div>
+            </div>
+
+            <label style="color: var(--primary); font-weight: 700;">🌐 CDN / Dashboard Domain (Optional)</label>
+            <input type="text" id="dash_domain" placeholder="relay.example.com"
+                style="border-color: rgba(0,230,118,0.2);">
+            <p style="font-size: 11px; color: #555; margin-top: -8px;">Enables CDN optimization and HTTPS subscriptions.
+            </p>
+        </div>
+
+
+        <button class="btn" id="submitBtn" onclick="submitSetup()">Complete Setup</button>
+    </div>
+
+    <div class="container" id="success-msg" style="display:none; text-align: center;">
+        <div class="hdr">
+            <div style="font-size: 48px; margin-bottom: 20px;">✨</div>
+            <h1>Setup Complete</h1>
+            <p>Your AUT Relay Infrastructure is now ready.</p>
+        </div>
+
+        <div id="vps-manual-container" style="display: none; margin-bottom: 24px;">
+            <div class="sec" style="text-align: left;">
+                <h2 style="text-align: center; margin-bottom: 16px;">MANUAL VPS CONFIG</h2>
+                <p style="font-size: 13px; color: var(--muted); margin-bottom: 16px;">Follow these steps on your Linux
+                    VPS (Ubuntu/Debian) to set up the bridge manually.</p>
+
+                <div
+                    style="background: rgba(0,0,0,0.2); padding: 12px; border-radius: 8px; margin-bottom: 12px; border: 1px solid rgba(255,255,255,0.05);">
+                    <h3 style="font-size: 14px; margin-bottom: 8px;">Step 0: Connect via SSH</h3>
+                    <p style="font-size: 12px; color: var(--muted); margin-bottom: 8px;">Open your terminal (or
+                        CMD/PowerShell) and connect to your VPS. Replace <code>root</code> with your SSH user if
+                        different:</p>
+                    <textarea readonly
+                        style="width: 100%; height: 36px; background: #000; border: 1px solid rgba(255,255,255,0.1); border-radius: 6px; color: var(--accent-green); font-family: monospace; font-size: 11px; padding: 8px; resize: none; margin-bottom: 0;">ssh root@YOUR_VPS_IP</textarea>
+                </div>
+
+                <div
+                    style="background: rgba(0,0,0,0.2); padding: 12px; border-radius: 8px; margin-bottom: 12px; border: 1px solid rgba(255,255,255,0.05);">
+                    <h3 style="font-size: 14px; margin-bottom: 8px;">Step 1: Download & Extract FRP</h3>
+                    <p style="font-size: 12px; color: var(--muted); margin-bottom: 8px;">Run this command to download
+                        and extract the FRP server binary:</p>
+                    <textarea readonly
+                        style="width: 100%; height: 50px; background: #000; border: 1px solid rgba(255,255,255,0.1); border-radius: 6px; color: var(--accent-green); font-family: monospace; font-size: 11px; padding: 8px; resize: none; margin-bottom: 12px;">wget -O frp.tar.gz https://github.com/fatedier/frp/releases/download/v0.61.1/frp_0.61.1_linux_amd64.tar.gz && tar -xzf frp.tar.gz && mv frp_0.61.1_linux_amd64 frp && chmod +x frp/frps</textarea>
+                    <p style="font-size: 11px; color: var(--muted); margin-bottom: 8px;"><b>Option 2: Manual
+                            Installation (If wget fails)</b><br>Find the <code>frp_0.61.1_linux_amd64.tar.gz</code> file
+                        in the <code>bin</code> folder on your PC. Upload it using <b>SCP</b>, <b>WinSCP</b>, or
+                        <b>Termius</b>. To use SCP, run this in your local PC terminal:</p>
+                    <textarea readonly
+                        style="width: 100%; height: 36px; background: #000; border: 1px solid rgba(255,255,255,0.1); border-radius: 6px; color: var(--accent-green); font-family: monospace; font-size: 11px; padding: 8px; resize: none; margin-bottom: 8px;">scp path/to/bin/frp_0.61.1_linux_amd64.tar.gz root@YOUR_VPS_IP:~</textarea>
+                    <p style="font-size: 11px; color: var(--muted); margin-bottom: 8px;">Then extract it on your VPS:
+                    </p>
+                    <textarea readonly
+                        style="width: 100%; height: 36px; background: #000; border: 1px solid rgba(255,255,255,0.1); border-radius: 6px; color: var(--accent-green); font-family: monospace; font-size: 11px; padding: 8px; resize: none; margin-bottom: 0;">tar -xzf frp_0.61.1_linux_amd64.tar.gz && mv frp_0.61.1_linux_amd64 frp && chmod +x frp/frps</textarea>
+                </div>
+
+                <div
+                    style="background: rgba(0,0,0,0.2); padding: 12px; border-radius: 8px; margin-bottom: 12px; border: 1px solid rgba(255,255,255,0.05);">
+                    <h3 style="font-size: 14px; margin-bottom: 8px;">Step 2: Apply Configuration</h3>
+                    <p style="font-size: 12px; color: var(--muted); margin-bottom: 8px;">Run
+                        <code>cat > frp/frps.toml</code>, paste the block below, and press <b>Ctrl+D</b>.</p>
+                    <div id="toml-box"
+                        style="white-space: pre; background: #000; border: 1px solid var(--accent-blue); padding: 12px; border-radius: 6px; font-family: monospace; color: var(--accent-green); font-size: 11px; max-height: 150px; overflow: auto; margin-bottom: 8px;">
+                    </div>
+                    <button class="btn" onclick="copyToml()"
+                        style="background: rgba(255,255,255,0.05); color: #fff; padding: 8px 12px; font-size: 12px; box-shadow: none; width: auto; display: block; margin: 0 auto;">Copy
+                        Config Block</button>
+                </div>
+
+                <div
+                    style="background: rgba(0,0,0,0.2); padding: 12px; border-radius: 8px; margin-bottom: 12px; border: 1px solid rgba(255,255,255,0.05);">
+                    <h3 style="font-size: 14px; margin-bottom: 8px;">Step 3: Setup Auto-Start & Firewall</h3>
+                    <p style="font-size: 12px; color: var(--muted); margin-bottom: 8px;">Paste this entire block to
+                        ensure the tunnel starts automatically and has permission to use the necessary ports.</p>
+                    <textarea id="service-box" readonly
+                        style="width: 100%; height: 100px; background: #000; border: 1px solid rgba(255,255,255,0.1); border-radius: 6px; color: var(--accent-green); font-family: monospace; font-size: 11px; padding: 8px; resize: none; margin-bottom: 8px;"># Open Firewall Ports
+if command -v ufw >/dev/null 2>&1; then
+    sudo ufw allow 443/tcp
+    sudo ufw allow 8080/tcp
+    sudo ufw allow 8880/tcp
+elif command -v iptables >/dev/null 2>&1; then
+    sudo iptables -I INPUT -p tcp --dport 443 -j ACCEPT
+    sudo iptables -I INPUT -p tcp --dport 8080 -j ACCEPT
+    sudo iptables -I INPUT -p tcp --dport 8880 -j ACCEPT
+    sudo iptables-save > /etc/iptables/rules.v4 2>/dev/null
+fi
+
+# Set Permissions
+sudo setcap 'cap_net_bind_service=+ep' $(pwd)/frp/frps
+
+CUR_DIR=$(pwd)
+sudo tee /etc/systemd/system/frps.service > /dev/null <<EOF
+[Unit]
+Description=FRP Server
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=$CUR_DIR/frp
+ExecStart=$CUR_DIR/frp/frps -c $CUR_DIR/frp/frps.toml
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+sudo systemctl daemon-reload && sudo systemctl enable frps && sudo systemctl restart frps</textarea>
+                    <button class="btn" onclick="copyService()"
+                        style="background: rgba(255,255,255,0.05); color: #fff; padding: 8px 12px; font-size: 12px; box-shadow: none; width: auto; display: block; margin: 0 auto;">Copy
+                        Service Script</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="dash-btn-container" style="margin-top: 32px;"></div>
+        <p style="margin-top: 24px; font-size: 12px; color: #555;">Transitioning to the management dashboard. Initial
+            sync may take a moment.</p>
+    </div>
+
+    <div class="toast" id="toast"></div>
+
+    <script>
+        function toast(msg, success) {
+            var t = document.getElementById('toast');
+            t.textContent = msg;
+            t.className = 'toast show' + (success ? ' success' : '');
+            setTimeout(function () { t.className = 'toast' + (success ? ' success' : '') }, 4000);
+        }
+
+        function copyToml() {
+            var t = document.createElement('textarea');
+            t.value = document.getElementById('toml-box').textContent;
+            document.body.appendChild(t); t.select(); document.execCommand('copy'); document.body.removeChild(t);
+            toast('VPS Config copied!', true);
+        }
+
+        function copyService() {
+            var t = document.createElement('textarea');
+            t.value = document.getElementById('service-box').value;
+            document.body.appendChild(t); t.select(); document.execCommand('copy'); document.body.removeChild(t);
+            toast('Service Script copied!', true);
+        }
+
+        function startFinalizing() {
+            var screen = document.getElementById('finalizing-screen');
+            var progress = document.getElementById('progress-fill');
+            var status = document.getElementById('status-text');
+
+            document.body.style.overflow = 'hidden';
+            screen.style.display = 'flex';
+
+            var steps = [
+                { p: 20, t: "Initializing master controller..." },
+                { p: 45, t: "Starting Xray-core services..." },
+                { p: 70, t: "Establishing secure tunnels..." },
+                { p: 90, t: "Synchronizing user database..." },
+                { p: 100, t: "Redirecting to Dashboard..." }
+            ];
+
+            var i = 0;
+            var interval = setInterval(function () {
+                if (i < steps.length) {
+                    progress.style.width = steps[i].p + "%";
+                    status.textContent = steps[i].t;
+                    i++;
+                } else {
+                    clearInterval(interval);
+                    setTimeout(function () {
+                        window.location.href = '/';
+                    }, 500);
+                }
+            }, 600);
+        }
+
+        function submitSetup() {
+            var vpsIp = document.getElementById('vps_ip').value.trim();
+            var autUser = document.getElementById('aut_user').value.trim();
+            var autPass = document.getElementById('aut_pass').value.trim();
+            var dashUser = document.getElementById('dash_user').value.trim();
+            var dashPass = document.getElementById('dash_pass').value.trim();
+
+            if (!vpsIp || !autUser || !autPass || !dashUser || !dashPass) {
+                toast('Please fill in all required fields.', false);
+                return;
+            }
+
+            var btn = document.getElementById('submitBtn');
+            btn.disabled = true;
+            btn.innerHTML = '<span class="loader" style="border-top-color:#000"></span> Setting up...';
+
+            var data = {
+                vps_ip: vpsIp,
+                aut_user: autUser,
+                aut_pass: autPass,
+                dash_user: dashUser,
+                dash_pass: dashPass,
+                dashboard_domain: document.getElementById('dash_domain').value.trim()
+            };
+
+            var x = new XMLHttpRequest();
+            x.open('POST', '/api/setup', true);
+            x.setRequestHeader('Content-Type', 'application/json');
+            x.onreadystatechange = function () {
+                if (x.readyState === 4) {
+                    if (x.status === 200) {
+                        try {
+                            var res = JSON.parse(x.responseText);
+                            if (res.ok) {
+                                document.getElementById('setup-form').style.display = 'none';
+                                document.getElementById('success-msg').style.display = 'block';
+                                document.getElementById('toml-box').textContent = res.frps_toml;
+                                document.getElementById('vps-manual-container').style.display = 'block';
+
+                                var dashBtn = document.createElement('button');
+                                dashBtn.innerHTML = 'Proceed to Dashboard ➔';
+                                dashBtn.className = 'btn';
+                                dashBtn.style.marginTop = '20px';
+                                dashBtn.onclick = startFinalizing;
+                                document.getElementById('dash-btn-container').appendChild(dashBtn);
+                            } else {
+                                toast('Setup failed: ' + (res.error || 'Unknown error'), false);
+                                btn.disabled = false;
+                                btn.innerHTML = 'Complete Setup';
+                            }
+                        } catch (e) {
+                            toast('Invalid server response.', false);
+                            btn.disabled = false;
+                            btn.innerHTML = 'Complete Setup';
+                        }
+                    } else {
+                        toast('Server error (' + x.status + ').', false);
+                        btn.disabled = false;
+                        btn.innerHTML = 'Complete Setup';
+                    }
+                }
+            };
+            x.send(JSON.stringify(data));
+        }
+    </script>
+</body>
+
+</html>

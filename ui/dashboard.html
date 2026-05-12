@@ -1,0 +1,2354 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>AUT Proxy Bridge | Management Console</title>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap"
+        rel="stylesheet">
+    <style>
+        :root {
+            --bg: #050609;
+            --card: #0f111a;
+            --border: rgba(255, 255, 255, 0.06);
+            --accent-blue: #3b82f6;
+            --accent-blue-rgb: 59, 130, 246;
+            --accent-green: #10b981;
+            --accent-green-rgb: 16, 185, 129;
+            --accent-orange: #f59e0b;
+            --accent-red: #ef4444;
+            --text: #f8fafc;
+            --muted: #94a3b8;
+            --glass: rgba(255, 255, 255, 0.02);
+            --glass-heavy: rgba(255, 255, 255, 0.05);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            font-family: 'Plus Jakarta Sans', -apple-system, sans-serif;
+            background: var(--bg);
+            background-image:
+                radial-gradient(circle at 0% 0%, rgba(59, 130, 246, 0.03) 0%, transparent 40%),
+                radial-gradient(circle at 100% 100%, rgba(16, 185, 129, 0.03) 0%, transparent 40%);
+            min-height: 100vh;
+            color: var(--text);
+            padding-bottom: 90px;
+        }
+
+        /* Typography & Layout */
+        .container {
+            max-width: 720px;
+            margin: 0 auto;
+            padding: 16px;
+        }
+
+        h1,
+        h2,
+        h3 {
+            font-weight: 700;
+            letter-spacing: -0.02em;
+        }
+
+        .muted {
+            color: var(--muted);
+            font-size: 12px;
+        }
+
+        /* Header */
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 0 16px;
+        }
+
+        .brand h1 {
+            font-size: 18px;
+            background: linear-gradient(90deg, var(--accent-blue), var(--accent-green));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        /* Cards */
+        .card {
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0.01));
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            padding: 16px;
+            margin-bottom: 12px;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .card:hover {
+            border-color: rgba(255, 255, 255, 0.1);
+            transform: translateY(-2px);
+        }
+
+        .card-compact {
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 12px;
+            transition: all 0.3s;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .card-compact.active {
+            border-color: rgba(var(--accent-blue-rgb), 0.3);
+            background: rgba(var(--accent-blue-rgb), 0.03);
+            box-shadow: 0 0 20px rgba(var(--accent-blue-rgb), 0.05);
+        }
+
+        @keyframes pulse-glow {
+            0% {
+                box-shadow: 0 0 0 0 rgba(var(--accent-blue-rgb), 0.4);
+            }
+
+            70% {
+                box-shadow: 0 0 0 8px rgba(var(--accent-blue-rgb), 0);
+            }
+
+            100% {
+                box-shadow: 0 0 0 0 rgba(var(--accent-blue-rgb), 0);
+            }
+        }
+
+        .fastest-badge {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            width: 6px;
+            height: 6px;
+            background: var(--accent-blue);
+            border-radius: 50%;
+            animation: pulse-glow 2s infinite;
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 12px;
+        }
+
+        /* Stats & Status */
+        .status-pill {
+            padding: 4px 10px;
+            border-radius: 8px;
+            font-size: 10px;
+            font-weight: 800;
+            text-transform: uppercase;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            letter-spacing: 0.05em;
+        }
+
+        .status-pill.on {
+            background: rgba(var(--accent-green-rgb), 0.1);
+            color: var(--accent-green);
+            border: 1px solid rgba(var(--accent-green-rgb), 0.2);
+        }
+
+        .status-pill.off {
+            background: rgba(255, 255, 255, 0.05);
+            color: var(--muted);
+            border: 1px solid var(--border);
+        }
+
+        .status-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: currentColor;
+            box-shadow: 0 0 8px currentColor;
+        }
+
+        /* Progress Bars */
+        .progress-container {
+            margin: 10px 0;
+        }
+
+        .progress-label {
+            display: flex;
+            justify-content: space-between;
+            font-size: 10px;
+            margin-bottom: 4px;
+            color: var(--muted);
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .progress-track {
+            height: 6px;
+            background: rgba(255, 255, 255, 0.04);
+            border-radius: 10px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            border-radius: 10px;
+            transition: width 1.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .fill-blue {
+            background: linear-gradient(90deg, #3b82f6, #60a5fa);
+            box-shadow: 0 0 10px rgba(59, 130, 246, 0.3);
+        }
+
+        .fill-green {
+            background: linear-gradient(90deg, #10b981, #34d399);
+            box-shadow: 0 0 10px rgba(16, 185, 129, 0.3);
+        }
+
+        .fill-orange {
+            background: linear-gradient(90deg, #f59e0b, #fbbf24);
+        }
+
+        .fill-red {
+            background: linear-gradient(90deg, #ef4444, #f87171);
+        }
+
+        /* Buttons */
+        .btn {
+            padding: 10px 16px;
+            border-radius: 12px;
+            border: none;
+            font-size: 13px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            width: 100%;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #fff, #e2e8f0);
+            color: #000;
+            box-shadow: 0 4px 12px rgba(255, 255, 255, 0.1);
+        }
+
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.05);
+            color: var(--text);
+            border: 1px solid var(--border);
+        }
+
+        .btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.08);
+            border-color: rgba(255, 255, 255, 0.2);
+        }
+
+        .btn-ghost {
+            background: transparent;
+            color: var(--muted);
+            border: 1px solid var(--border);
+            font-size: 11px;
+            padding: 5px 10px;
+            width: auto;
+        }
+
+        .btn-danger {
+            background: rgba(239, 68, 68, 0.05);
+            color: var(--accent-red);
+            border: 1px solid rgba(239, 68, 68, 0.1);
+        }
+
+        .btn-danger:hover {
+            background: rgba(239, 68, 68, 0.1);
+            border-color: rgba(239, 68, 68, 0.3);
+        }
+
+        .btn:active {
+            transform: scale(0.95);
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        /* Navigation */
+        .bottom-nav {
+            position: fixed;
+            bottom: 16px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: calc(100% - 32px);
+            max-width: 440px;
+            height: 60px;
+            background: rgba(10, 12, 18, 0.85);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid var(--border);
+            border-radius: 18px;
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            z-index: 1000;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
+        }
+
+        .nav-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 3px;
+            color: var(--muted);
+            font-size: 9px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.2s;
+            padding: 8px;
+            flex: 1;
+        }
+
+        .nav-item.active {
+            color: var(--accent-blue);
+        }
+
+        .nav-icon {
+            font-size: 18px;
+        }
+
+        /* Tab Views */
+        .tab-view {
+            display: none;
+            animation: fadeIn 0.4s ease-out;
+        }
+
+        .tab-view.active {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* Forms */
+        input,
+        textarea,
+        select {
+            width: 100%;
+            padding: 10px 14px;
+            background: rgba(0, 0, 0, 0.2);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            color: #fff;
+            font-family: inherit;
+            font-size: 13px;
+            margin-bottom: 10px;
+            transition: border-color 0.3s;
+        }
+
+        input:focus {
+            outline: none;
+            border-color: var(--accent-blue);
+        }
+
+        label {
+            display: block;
+            font-size: 11px;
+            color: var(--text-muted);
+            margin-bottom: 5px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        /* Log Viewer */
+        .log-viewer {
+            background: #000;
+            border-radius: 12px;
+            padding: 12px;
+            font-family: 'JetBrains Mono', 'SFMono-Regular', Consolas, monospace;
+            font-size: 10px;
+            color: #00e676;
+            height: 180px;
+            overflow-y: auto;
+            border: 1px solid var(--border);
+        }
+
+        .log-line {
+            margin-bottom: 3px;
+            line-height: 1.4;
+        }
+
+        /* Modals */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.85);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            z-index: 2000;
+        }
+
+        .modal-content {
+            background: #0d0f17;
+            border-radius: 22px;
+            padding: 20px;
+            width: 100%;
+            max-width: 420px;
+            border: 1px solid var(--border);
+            position: relative;
+        }
+
+        /* Server/User List Grid */
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 10px;
+        }
+
+        @media (min-width: 600px) {
+            .grid {
+                grid-template-columns: 1fr 1fr;
+            }
+        }
+
+        /* Toast */
+        .toast {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%) translateY(-100px);
+            background: var(--text);
+            color: #000;
+            padding: 10px 20px;
+            border-radius: 12px;
+            font-weight: 700;
+            font-size: 13px;
+            z-index: 3000;
+            transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.4);
+        }
+
+        .toast.show {
+            transform: translateX(-50%) translateY(0);
+        }
+
+        /* Spinning Loader */
+        .spinner {
+            width: 16px;
+            height: 16px;
+            border: 2px solid rgba(0, 0, 0, 0.1);
+            border-top-color: currentColor;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        /* Empty State */
+        .empty-state {
+            text-align: center;
+            padding: 30px 10px;
+            color: var(--text-muted);
+        }
+
+        .empty-icon {
+            font-size: 32px;
+            margin-bottom: 10px;
+            opacity: 0.3;
+        }
+
+        /* Login View */
+        #login_view {
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .login-card {
+            width: 100%;
+            max-width: 360px;
+        }
+
+        /* Connection Topology */
+        .topology-container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 30px 10px;
+            position: relative;
+            margin-bottom: 10px;
+            background: rgba(255, 255, 255, 0.01);
+            border-radius: 24px;
+            border: 1px solid rgba(255, 255, 255, 0.03);
+        }
+
+        .topo-node {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 12px;
+            z-index: 2;
+            flex: 1;
+            position: relative;
+        }
+
+        .topo-icon-circle {
+            width: 56px;
+            height: 56px;
+            border-radius: 18px;
+            background: var(--glass-heavy);
+            border: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            position: relative;
+            transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+            z-index: 3;
+        }
+
+        .topo-node.active .topo-icon-circle {
+            border-color: rgba(var(--accent-blue-rgb), 0.5);
+            box-shadow: 0 0 20px rgba(var(--accent-blue-rgb), 0.1);
+            background: rgba(var(--accent-blue-rgb), 0.05);
+        }
+
+        .topo-node.active.success .topo-icon-circle {
+            border-color: rgba(var(--accent-green-rgb), 0.5);
+            box-shadow: 0 0 25px rgba(var(--accent-green-rgb), 0.2);
+            background: rgba(var(--accent-green-rgb), 0.05);
+        }
+
+        .topo-label {
+            font-size: 12px;
+            font-weight: 800;
+            text-align: center;
+            color: var(--muted);
+            letter-spacing: 0.02em;
+        }
+
+        .topo-node.active .topo-label {
+            color: #fff;
+        }
+
+        .topo-sub {
+            font-size: 10px;
+            color: var(--muted);
+            text-align: center;
+            max-width: 100px;
+            opacity: 0.6;
+            font-weight: 500;
+        }
+
+        .topo-line {
+            position: absolute;
+            top: 58px;
+            /* Center of 56px circle + 30px padding - adjust if needed */
+            height: 2px;
+            background: rgba(255, 255, 255, 0.05);
+            z-index: 1;
+            transition: all 0.5s;
+        }
+
+        .line-1 {
+            left: 18%;
+            width: 32%;
+        }
+
+        .line-2 {
+            left: 50%;
+            width: 32%;
+        }
+
+        .topo-line.active {
+            background: linear-gradient(90deg, var(--accent-blue), var(--accent-green));
+            box-shadow: 0 0 10px rgba(var(--accent-green-rgb), 0.3);
+        }
+
+        /* Fix vertical centering of line */
+        .topo-line {
+            top: 58px;
+        }
+
+        /* Corrected for 30px top padding + 28px half-circle */
+        @media (max-width: 480px) {
+            .topo-line {
+                top: 58px;
+            }
+        }
+
+        /* Data Flow Animation */
+        .flow-dot {
+            position: absolute;
+            width: 5px;
+            height: 5px;
+            background: var(--accent-blue);
+            border-radius: 50%;
+            top: -2px;
+            left: 0;
+            filter: blur(1px);
+            box-shadow: 0 0 6px var(--accent-blue);
+            display: none;
+        }
+
+        .animate-flow {
+            display: block;
+            animation: flow 2s linear infinite;
+        }
+
+        @keyframes flow {
+            0% {
+                left: 0%;
+                opacity: 0;
+            }
+
+            20% {
+                opacity: 1;
+            }
+
+            80% {
+                opacity: 1;
+            }
+
+            100% {
+                left: 100%;
+                opacity: 0;
+            }
+        }
+
+        .card-title-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+        }
+
+        .grid-compact {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+            gap: 8px;
+        }
+
+        .card-compact {
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 10px;
+            transition: all 0.2s ease;
+        }
+
+        .card-compact.active {
+            background: rgba(var(--accent-blue-rgb), 0.06);
+            border-color: var(--accent-blue);
+        }
+
+        .log-window {
+            background: #000;
+            height: 160px;
+            font-family: 'JetBrains Mono', 'Consolas', monospace;
+            font-size: 10px;
+            padding: 10px;
+            overflow-y: auto;
+            color: #ccc;
+            line-height: 1.4;
+            border-radius: 0 0 18px 18px;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div id="toast" class="toast"></div>
+
+    <!-- Login View -->
+    <div id="login_view" style="display:none;">
+        <div class="card login-card">
+            <header style="flex-direction: column; text-align: center;">
+                <div class="brand">
+                    <h1>&#127760; AUT Proxy Bridge</h1>
+                </div>
+                <p class="muted">Enter credentials to access the console</p>
+            </header>
+            <div style="margin-top: 10px;">
+                <label>Admin Username</label>
+                <input type="text" id="l_user" placeholder="Username">
+                <label>Admin Password</label>
+                <input type="password" id="l_pass" placeholder="Password" onkeypress="if(event.keyCode===13)doLogin()">
+                <button class="btn btn-primary" style="margin-top: 10px;" onclick="doLogin()">Log In</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Dashboard View -->
+    <div id="dashboard_view" style="display:none;">
+        <div class="container">
+            <header>
+                <div class="brand">
+                    <h1>&#127760; AUT Proxy</h1>
+                </div>
+                <button class="btn btn-ghost" onclick="doLogout()">Logout</button>
+            </header>
+
+            <!-- VPS WARNING -->
+            <div id="setup_warning" style="display:none;">
+                <div class="card" style="border-color: var(--accent-red); background: rgba(255,82,82,0.05);">
+                    <div class="card-header">
+                        <div>
+                            <h3 style="color: var(--accent-red); font-size: 16px;">VPS Tunnel Disconnected</h3>
+                            <p class="muted" style="margin-top: 4px;">Manual intervention required to restore access.
+                            </p>
+                        </div>
+                        <span style="font-size: 20px;">⚠️</span>
+                    </div>
+                    <div id="vps_mode_choice" style="display: flex; gap: 8px;">
+                        <button class="btn btn-primary" onclick="switchTab('settings')">Configure Settings</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TABS -->
+
+            <!-- OVERVIEW TAB -->
+            <div id="overview_tab" class="tab-view active">
+                <!-- Topology Concept Card -->
+                <div class="card" style="padding: 24px;">
+                    <div class="card-title-row">
+                        <h3 style="font-size: 16px;">Connection Flow</h3>
+                        <div id="ts_pill" class="status-pill off">
+                            <div class="status-dot"></div>
+                            <span id="ts_val">Disconnected</span>
+                        </div>
+                    </div>
+
+                    <div class="topology-container">
+                        <div class="topo-line line-1" id="l1">
+                            <div class="flow-dot" id="f1"></div>
+                        </div>
+                        <div class="topo-line line-2" id="l2">
+                            <div class="flow-dot" id="f2"></div>
+                        </div>
+
+                        <div class="topo-node active success" id="node_campus">
+                            <div class="topo-icon-circle">🎓</div>
+                            <div class="topo-label">Campus</div>
+                            <div class="topo-sub" id="topo_acc">None</div>
+                        </div>
+
+                        <div class="topo-node" id="node_bridge">
+                            <div class="topo-icon-circle">⚡</div>
+                            <div class="topo-label">The Bridge</div>
+                            <div class="topo-sub" id="topo_bridge_status">Idle</div>
+                        </div>
+
+                        <div class="topo-node" id="node_vpn">
+                            <div class="topo-icon-circle">🌐</div>
+                            <div class="topo-label">VPN Exit</div>
+                            <div class="topo-sub" id="topo_vpn_name">None</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <h3>Account Quota</h3>
+                    </div>
+                    <div id="usage_bars"></div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <h3>Host & Network Health</h3>
+                    </div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                        <div style="background: rgba(255,255,255,0.03); padding: 14px; border-radius: 16px;">
+                            <div
+                                style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                                <span class="muted" style="font-size: 10px; font-weight: 700;">HOST PC</span>
+                                <span id="sys_os" style="font-size: 9px; opacity: 0.5;">win32</span>
+                            </div>
+                            <div class="progress-label" style="margin-bottom: 2px;"><span>CPU</span><span
+                                    id="cpu_val">0%</span></div>
+                            <div class="progress-track" style="height: 4px; margin-bottom: 8px;">
+                                <div id="cpu_fill" class="progress-fill fill-blue" style="width:0%"></div>
+                            </div>
+                            <div class="progress-label" style="margin-bottom: 2px;"><span>RAM</span><span
+                                    id="ram_val">0%</span></div>
+                            <div class="progress-track" style="height: 4px;">
+                                <div id="ram_fill" class="progress-fill fill-green" style="width:0%"></div>
+                            </div>
+                        </div>
+                        <div
+                            style="background: rgba(255,255,255,0.03); padding: 14px; border-radius: 16px; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center;">
+                            <span class="muted"
+                                style="font-size: 10px; font-weight: 700; margin-bottom: 8px; align-self: flex-start;">NODE
+                                POOL</span>
+                            <h2 id="node_online_ratio" style="color: var(--accent-green);">0 / 0</h2>
+                            <p class="muted" style="font-size: 10px; margin-top: 4px;">Nodes Online</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <h3>Users Summary</h3>
+                    </div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                        <div style="background: rgba(255,255,255,0.03); padding: 16px; border-radius: 16px;">
+                            <p class="muted">Active Users</p>
+                            <h2 id="us_active" style="margin-top:4px;">0</h2>
+                        </div>
+                        <div style="background: rgba(255,255,255,0.03); padding: 16px; border-radius: 16px;">
+                            <p class="muted">Total Usage</p>
+                            <h2 id="us_usage" style="margin-top:4px;">0 B</h2>
+                        </div>
+                    </div>
+                    <p class="muted" style="margin-top: 12px; display: flex; align-items: center; gap: 6px;">
+                        <span style="color: var(--accent-orange);">●</span> <span id="us_alerts">0</span> alerts
+                        requiring attention
+                    </p>
+                </div>
+
+                <!-- Polished System Logs -->
+                <div class="card"
+                    style="margin-top: 24px; padding: 0; overflow: hidden; border-color: rgba(255,255,255,0.05);">
+                    <div
+                        style="background: rgba(255,255,255,0.03); padding: 10px 16px; border-bottom: 1px solid rgba(255,255,255,0.05); display: flex; justify-content: space-between; align-items: center;">
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <div
+                                style="width: 8px; height: 8px; background: var(--accent-green); border-radius: 50%; box-shadow: 0 0 8px var(--accent-green);">
+                            </div>
+                            <span style="font-weight: 600; font-size: 13px; letter-spacing: 0.5px; color: #aaa;">SYSTEM
+                                TERMINAL</span>
+                        </div>
+                        <span class="muted" style="font-size: 10px; font-family: monospace;">STDOUT_STREAM</span>
+                    </div>
+                    <div id="log_window"
+                        style="background: #080808; height: 200px; font-family: 'Consolas', 'Monaco', monospace; font-size: 11px; padding: 12px; overflow-y: auto; color: #ccc; line-height: 1.5; scroll-behavior: smooth;">
+                        <div id="log_content"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SERVERS TAB -->
+            <div id="servers_tab" class="tab-view">
+                <!-- Master Section: Freedom + Subs -->
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                    <h2>Master Control</h2>
+                    <div style="display: flex; gap: 8px;">
+                        <button class="btn btn-ghost" onclick="pingAll()"
+                            style="color: var(--accent-green); border-color: rgba(0, 230, 118, 0.2); font-size: 12px; padding: 6px 12px;">⚡
+                            Ping All</button>
+                        <button class="btn btn-ghost" onclick="showModal('sub')"
+                            style="font-size: 12px; padding: 6px 12px;">+ Add Sub</button>
+                        <button class="btn btn-ghost" onclick="showModal('srv')"
+                            style="font-size: 12px; padding: 6px 12px;">+ Add Server</button>
+                    </div>
+                </div>
+
+                <div id="ping_progress_container" style="display: none; margin-bottom: 16px;">
+                    <div class="progress-label"><span>Pinging Servers...</span><span id="ping_progress_text">0%</span>
+                    </div>
+                    <div class="progress-track">
+                        <div id="ping_progress_fill" class="progress-fill fill-blue" style="width:0%"></div>
+                    </div>
+                </div>
+
+                <style>
+                    .grid-compact {
+                        display: grid;
+                        grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+                        gap: 8px;
+                    }
+
+                    .card-compact {
+                        background: rgba(255, 255, 255, 0.03);
+                        border: 1px solid rgba(255, 255, 255, 0.08);
+                        border-radius: 8px;
+                        padding: 10px;
+                        transition: all 0.2s ease;
+                        display: flex;
+                        flex-direction: column;
+                        justify-content: space-between;
+                    }
+
+                    .card-compact.active {
+                        background: rgba(var(--accent-blue-rgb), 0.08);
+                        border-color: var(--accent-blue);
+                    }
+
+                    .terminal-mini {
+                        background: #000;
+                        border: 1px solid #333;
+                        border-radius: 6px;
+                        height: 120px;
+                        font-family: 'Consolas', monospace;
+                        font-size: 11px;
+                        padding: 8px;
+                        overflow-y: auto;
+                        color: #eee;
+                        line-height: 1.4;
+                    }
+
+                    #log_content div {
+                        margin-bottom: 2px;
+                        border-left: 2px solid transparent;
+                        padding-left: 8px;
+                    }
+
+                    #log_content div:hover {
+                        background: rgba(255, 255, 255, 0.02);
+                        border-left-color: var(--accent-blue);
+                    }
+
+                    .log-error {
+                        color: #ff5252;
+                        border-left-color: #ff5252 !important;
+                        background: rgba(255, 82, 82, 0.05);
+                    }
+
+                    .log-warn {
+                        color: #ffd740;
+                        border-left-color: #ffd740 !important;
+                    }
+
+                    .log-success {
+                        color: #69f0ae;
+                        border-left-color: #69f0ae !important;
+                    }
+
+                    .log-info {
+                        color: #40c4ff;
+                    }
+                </style>
+                <div id="master_list" class="grid"
+                    style="grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; margin-bottom: 24px;">
+                </div>
+
+                <!-- Servers Section -->
+                <div style="margin: 24px 0 12px;">
+                    <h2>Available Servers</h2>
+                </div>
+                <div id="list" class="grid-compact"></div>
+
+            </div>
+
+            <!-- ACCOUNTS TAB -->
+            <div id="accounts_tab" class="tab-view">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                    <h2>AUT Accounts</h2>
+                    <button class="btn btn-ghost" onclick="showModal('aut')">+ Add</button>
+                </div>
+                <div id="aut_list" class="grid"></div>
+            </div>
+
+            <!-- USERS TAB -->
+            <div id="users_tab" class="tab-view">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                    <h2>User Management</h2>
+                    <button class="btn btn-ghost" onclick="showModal('user')">+ Add User</button>
+                </div>
+                <div id="user_list"></div>
+            </div>
+
+            <!-- SETTINGS TAB -->
+            <div id="settings_tab" class="tab-view">
+                <header style="margin-bottom: 16px;">
+                    <h2 style="font-size: 18px;">System Control Panel</h2>
+                    <p class="muted">Global configuration & security</p>
+                </header>
+
+                <!-- Category: Connectivity -->
+                <div class="card-compact" style="margin-bottom: 12px; border-left: 3px solid var(--accent-blue);">
+                    <h3 style="font-size: 13px; margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
+                        <span>🌐</span> Connectivity
+                    </h3>
+
+                    <div class="setting-group" style="margin-bottom: 8px;">
+                        <label>VPS Tunnel IP</label>
+                        <input type="text" id="s_vps_ip" placeholder="e.g. 192.168.1.1">
+                    </div>
+
+                    <div class="setting-group">
+                        <label>Dashboard / Subscription Domain</label>
+                        <input type="text" id="s_dash_domain" placeholder="relay.example.com">
+                        <p class="muted" style="font-size: 9px; margin-top: 4px;">Enables Cloudflare/CDN support and
+                            clean HTTPS links.</p>
+                    </div>
+                </div>
+
+                <!-- Category: Security -->
+                <div class="card-compact" style="margin-bottom: 12px; border-left: 3px solid var(--accent-orange);">
+                    <h3 style="font-size: 13px; margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
+                        <span>🛡️</span> Admin Credentials
+                    </h3>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+                        <div>
+                            <label>Username</label>
+                            <input type="text" id="s_admin_user" value="admin">
+                        </div>
+                        <div>
+                            <label>Password</label>
+                            <input type="password" id="s_admin_pass" placeholder="••••••••">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Category: University Thresholds -->
+                <div class="card-compact" style="margin-bottom: 12px; border-left: 3px solid var(--accent-green);">
+                    <h3 style="font-size: 13px; margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
+                        <span>🎓</span> University Limits (AUT)
+                    </h3>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px;">
+                        <div>
+                            <label>Daily GB</label>
+                            <input type="number" step="0.1" id="s_th_daily" value="2.8">
+                        </div>
+                        <div>
+                            <label>Weekly GB</label>
+                            <input type="number" step="0.1" id="s_th_weekly" value="11.5">
+                        </div>
+                    </div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+                        <div>
+                            <label>Monthly GB</label>
+                            <input type="number" step="0.1" id="s_th_monthly" value="29.0">
+                        </div>
+                        <div>
+                            <label>Free GB</label>
+                            <input type="number" step="0.1" id="s_th_free" value="115.0">
+                        </div>
+                    </div>
+                    <div style="margin-top: 8px;">
+                        <label>Session Balance (GB)</label>
+                        <input type="number" step="0.1" id="s_th_session" value="1.0">
+                    </div>
+                </div>
+
+                <!-- Category: Automation & Maintenance -->
+                <div class="card-compact" style="margin-bottom: 16px;">
+                    <h3 style="font-size: 13px; margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
+                        <span>⚙️</span> Maintenance & Backup
+                    </h3>
+
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px;">
+                        <button class="btn btn-secondary" onclick="exportConfig()"
+                            style="font-size: 11px; padding: 8px;">📥 Export Backup</button>
+                        <button class="btn btn-secondary" onclick="document.getElementById('import_file').click()"
+                            style="font-size: 11px; padding: 8px;">📤 Import</button>
+                        <input type="file" id="import_file" style="display:none" onchange="importConfig(this)"
+                            accept=".json">
+                    </div>
+
+                    <div style="background: rgba(0,0,0,0.2); padding: 10px; border-radius: 8px;">
+                        <div
+                            style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                            <h4 style="font-size: 11px; color: var(--muted);">VPS Quick Setup</h4>
+                            <button class="btn btn-ghost" onclick="showVPSManual()"
+                                style="font-size: 9px; padding: 4px 8px;">Config</button>
+                        </div>
+                        <input type="text" id="vps_ssh_ip_quick" placeholder="VPS IP"
+                            style="padding: 8px; margin-bottom: 6px;">
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 8px;">
+                            <input type="text" id="vps_ssh_user_quick" placeholder="User (root)"
+                                style="padding: 8px; margin-bottom: 0;">
+                            <input type="password" id="vps_ssh_pass_quick" placeholder="Password"
+                                style="padding: 8px; margin-bottom: 0;">
+                        </div>
+                        <button class="btn btn-secondary" onclick="runQuickVPS()"
+                            style="font-size: 11px; padding: 8px;">Run Auto-Setup</button>
+                    </div>
+                </div>
+
+                <!-- Apply Changes Button -->
+                <button class="btn btn-primary" onclick="saveAllSettings()" style="margin-bottom: 24px;">Save All
+                    Changes</button>
+
+                <!-- Advanced Settings Toggle -->
+                <button class="btn btn-secondary" onclick="toggleAdvancedSettings()"
+                    style="background: transparent; border-color: var(--border); font-size: 12px; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center;">
+                    <span>🛠️ Advanced Configuration (Modify with Caution)</span>
+                    <span id="adv_toggle_icon">▼</span>
+                </button>
+
+                <!-- Advanced Settings Area -->
+                <div id="advanced_settings_area" style="display: none; animation: fadeIn 0.3s ease-out;">
+
+                    <div class="card-compact" style="margin-bottom: 12px; border-left: 3px solid var(--muted);">
+                        <h3 style="font-size: 13px; margin-bottom: 12px;">Port Configuration</h3>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+                            <div>
+                                <label>VLESS Local Port</label>
+                                <input type="number" id="s_vless_port" value="4433">
+                            </div>
+                            <div>
+                                <label>FRP Server Port</label>
+                                <input type="number" id="s_frp_port" value="443">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card-compact" style="margin-bottom: 12px; border-left: 3px solid var(--muted);">
+                        <h3 style="font-size: 13px; margin-bottom: 12px;">System Intervals</h3>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+                            <div>
+                                <label>Auto-Check Interval (s)</label>
+                                <input type="number" id="s_check_interval" value="60">
+                            </div>
+                            <div>
+                                <label>Ping Timeout (ms)</label>
+                                <input type="number" id="s_ping_timeout" value="2000">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card-compact" style="margin-bottom: 12px; border-left: 3px solid var(--muted);">
+                        <h3 style="font-size: 13px; margin-bottom: 12px;">Performance & Logs</h3>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+                            <div>
+                                <label>Max Log Buffer</label>
+                                <input type="number" id="s_max_logs" value="100">
+                            </div>
+                            <div>
+                                <label>Auto-Ping Loop (s)</label>
+                                <input type="number" id="s_ping_loop" value="300">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card-compact"
+                        style="border: 1px solid rgba(239, 68, 68, 0.3); background: rgba(239, 68, 68, 0.05); margin-bottom: 12px;">
+                        <h3 style="font-size: 13px; color: var(--accent-red); margin-bottom: 8px;">Danger Zone</h3>
+                        <p class="muted" style="margin-bottom: 12px; font-size: 10px;">Destroy all configurations and
+                            reset the server to a clean state. This cannot be undone.</p>
+                        <button class="btn btn-danger" onclick="systemWipe()"
+                            style="font-size: 11px; padding: 8px;">System Wipe</button>
+                    </div>
+
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <!-- Bottom Navigation -->
+    <nav id="navbar" class="bottom-nav" style="display:none;">
+        <div class="nav-item active" onclick="switchTab('overview')">
+            <span class="nav-icon">📊</span>
+            <span>Overview</span>
+        </div>
+        <div class="nav-item" onclick="switchTab('servers')">
+            <span class="nav-icon">🌐</span>
+            <span>Servers</span>
+        </div>
+        <div class="nav-item" onclick="switchTab('accounts')">
+            <span class="nav-icon">🎓</span>
+            <span>Accounts</span>
+        </div>
+        <div class="nav-item" onclick="switchTab('users')">
+            <span class="nav-icon">👥</span>
+            <span>Users</span>
+        </div>
+        <div class="nav-item" onclick="switchTab('settings')">
+            <span class="nav-icon">⚙️</span>
+            <span>Settings</span>
+        </div>
+    </nav>
+
+    <!-- Modals -->
+
+    <!-- Server Modal -->
+    <div class="modal-overlay" id="srvModal">
+        <div class="modal-content">
+            <h2>Add VPN Server</h2>
+            <p class="muted" style="margin-bottom: 16px;">Paste a VLESS, VMess, or SS link. Name and flag will be
+                auto-detected.</p>
+            <label>Config Link</label>
+            <textarea id="ilink" placeholder="vless://..." style="height: 120px;"></textarea>
+            <div style="display: flex; gap: 8px; margin-top: 10px;">
+                <button class="btn btn-secondary" style="flex: 1;" onclick="hideModal('srv')">Cancel</button>
+                <button class="btn btn-primary" style="flex: 2;" onclick="addSrv()">Add Server</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Subscription Modal -->
+    <div class="modal-overlay" id="subModal">
+        <div class="modal-content">
+            <h2>Add Subscription Link</h2>
+            <p class="muted" style="margin-bottom: 16px;">Links containing multiple v2ray configs</p>
+            <label>Friendly Name</label>
+            <input type="text" id="sub_name" placeholder="e.g. Provider A">
+            <label>Subscription URL</label>
+            <input type="text" id="sub_url" placeholder="https://example.com/sub/...">
+            <div style="display: flex; gap: 8px; margin-top: 10px;">
+                <button class="btn btn-secondary" style="flex: 1;" onclick="hideModal('sub')">Cancel</button>
+                <button class="btn btn-primary" style="flex: 2;" onclick="addSub()">Add Link</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Account Modal -->
+    <div class="modal-overlay" id="autModal">
+        <div class="modal-content">
+            <h2>Add University Account</h2>
+            <label>Student ID / Username</label>
+            <input type="text" id="auser" placeholder="username without @aut.ac.ir">
+            <label>Password</label>
+            <input type="password" id="apass">
+            <div style="display: flex; gap: 8px; margin-top: 10px;">
+                <button class="btn btn-secondary" onclick="hideModal('aut')">Cancel</button>
+                <button class="btn btn-primary" onclick="addAut()">Add Account</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- User Modal -->
+    <div class="modal-overlay" id="userModal">
+        <div class="modal-content">
+            <h2>Create New User</h2>
+            <label>User ID (Unique)</label>
+            <input type="text" id="u_userid" placeholder="user_01">
+            <label>Display Name</label>
+            <input type="text" id="u_name" placeholder="Primary Connection">
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+                <div>
+                    <label>Quota (GB)</label>
+                    <input type="number" step="0.1" id="u_quota" placeholder="50">
+                </div>
+                <div>
+                    <label>Expiry Date</label>
+                    <input type="date" id="u_expiry">
+                </div>
+            </div>
+            <div style="display: flex; gap: 16px; margin: 8px 0 12px 0;">
+                <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 13px;">
+                    <input type="checkbox" id="u_allow_direct" checked style="width: auto; margin: 0;"> Direct
+                </label>
+                <label id="u_cdn_label"
+                    style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 13px;">
+                    <input type="checkbox" id="u_allow_cdn" checked style="width: auto; margin: 0;"> CDN (Domain)
+                </label>
+            </div>
+            <div style="display: flex; gap: 8px; margin-top: 10px;">
+                <button class="btn btn-secondary" onclick="hideModal('user')">Cancel</button>
+                <button class="btn btn-primary" onclick="addUser()">Create User</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- VPS Manual Config Modal -->
+    <div class="modal-overlay" id="vpsManualModal">
+        <div class="modal-content" style="max-width: 650px;">
+            <h2>VPS Manual Configuration</h2>
+            <p class="muted" style="margin-bottom: 16px;">Follow these steps on your Linux VPS (Ubuntu/Debian) to set up
+                the bridge manually.</p>
+
+            <div style="height: 400px; overflow-y: auto; padding-right: 8px;">
+                <div class="card-compact" style="margin-bottom: 12px; background: rgba(0,0,0,0.2);">
+                    <h3 style="font-size: 13px; margin-bottom: 8px;">Step 0: Connect via SSH</h3>
+                    <p class="muted" style="font-size: 11px; margin-bottom: 8px;">Open your terminal (or CMD/PowerShell)
+                        and connect to your VPS. Replace <code>root</code> with your SSH user if different:</p>
+                    <div style="position: relative; margin-bottom: 0;">
+                        <textarea readonly
+                            style="height: 36px; font-family: monospace; font-size: 10px; margin-bottom: 0; background: #000;">ssh root@YOUR_VPS_IP</textarea>
+                    </div>
+                </div>
+
+                <div class="card-compact" style="margin-bottom: 12px; background: rgba(0,0,0,0.2);">
+                    <h3 style="font-size: 13px; margin-bottom: 8px;">Step 1: Download & Extract FRP</h3>
+                    <p class="muted" style="font-size: 11px; margin-bottom: 8px;">Run this command to download and
+                        extract the FRP server binary:</p>
+                    <div style="position: relative; margin-bottom: 12px;">
+                        <textarea readonly
+                            style="height: 50px; font-family: monospace; font-size: 10px; margin-bottom: 0; background: #000;">wget -O frp.tar.gz https://github.com/fatedier/frp/releases/download/v0.61.1/frp_0.61.1_linux_amd64.tar.gz && tar -xzf frp.tar.gz && mv frp_0.61.1_linux_amd64 frp && chmod +x frp/frps</textarea>
+                    </div>
+                    <p class="muted" style="font-size: 11px; margin-bottom: 8px;"><b>Option 2: Manual Installation (If
+                            wget fails)</b><br>Find the <code>frp_0.61.1_linux_amd64.tar.gz</code> file in the
+                        <code>bin</code> folder on your PC. Upload it using <b>SCP</b>, <b>WinSCP</b>, or
+                        <b>Termius</b>. To use SCP, run this in your local PC terminal:</p>
+                    <div style="position: relative; margin-bottom: 8px;">
+                        <textarea readonly
+                            style="height: 36px; font-family: monospace; font-size: 10px; margin-bottom: 0; background: #000;">scp path/to/bin/frp_0.61.1_linux_amd64.tar.gz root@YOUR_VPS_IP:~</textarea>
+                    </div>
+                    <p class="muted" style="font-size: 11px; margin-bottom: 8px;">Then extract it on your VPS:</p>
+                    <div style="position: relative; margin-bottom: 0;">
+                        <textarea readonly
+                            style="height: 36px; font-family: monospace; font-size: 10px; margin-bottom: 0; background: #000;">tar -xzf frp_0.61.1_linux_amd64.tar.gz && mv frp_0.61.1_linux_amd64 frp && chmod +x frp/frps</textarea>
+                    </div>
+                </div>
+
+                <div class="card-compact" style="margin-bottom: 12px; background: rgba(0,0,0,0.2);">
+                    <h3 style="font-size: 13px; margin-bottom: 8px;">Step 2: Apply Configuration</h3>
+                    <p class="muted" style="font-size: 11px; margin-bottom: 8px;">Run <code>cat > frp/frps.toml</code>,
+                        paste the block below, and press <b>Ctrl+D</b>.</p>
+                    <textarea id="vps_text_manual" readonly
+                        style="height: 140px; font-family: monospace; font-size: 10px; margin-bottom: 8px; background: #000; border-color: var(--accent-blue);"></textarea>
+                    <button class="btn btn-secondary" onclick="copyVPSManual()"
+                        style="font-size: 11px; padding: 6px;">Copy Config Block</button>
+                </div>
+
+                <div class="card-compact" style="margin-bottom: 12px; background: rgba(0,0,0,0.2);">
+                    <h3 style="font-size: 13px; margin-bottom: 8px;">Step 3: Setup Auto-Start & Firewall</h3>
+                    <p class="muted" style="font-size: 11px; margin-bottom: 8px;">Paste this entire block to ensure the
+                        tunnel starts automatically and has permission to use the necessary ports.</p>
+                    <textarea id="vps_service_script" readonly
+                        style="height: 120px; font-family: monospace; font-size: 10px; margin-bottom: 8px; background: #000;"># Open Firewall Ports
+if command -v ufw >/dev/null 2>&1; then
+    sudo ufw allow 443/tcp
+    sudo ufw allow 8080/tcp
+    sudo ufw allow 8880/tcp
+elif command -v iptables >/dev/null 2>&1; then
+    sudo iptables -I INPUT -p tcp --dport 443 -j ACCEPT
+    sudo iptables -I INPUT -p tcp --dport 8080 -j ACCEPT
+    sudo iptables -I INPUT -p tcp --dport 8880 -j ACCEPT
+    sudo iptables-save > /etc/iptables/rules.v4 2>/dev/null
+fi
+
+# Set Permissions
+sudo setcap 'cap_net_bind_service=+ep' $(pwd)/frp/frps
+
+CUR_DIR=$(pwd)
+sudo tee /etc/systemd/system/frps.service > /dev/null <<EOF
+[Unit]
+Description=FRP Server
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=$CUR_DIR/frp
+ExecStart=$CUR_DIR/frp/frps -c $CUR_DIR/frp/frps.toml
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+sudo systemctl daemon-reload && sudo systemctl enable frps && sudo systemctl restart frps</textarea>
+                    <button class="btn btn-secondary"
+                        onclick="copyText(document.getElementById('vps_service_script').value)"
+                        style="font-size: 11px; padding: 6px;">Copy Service Script</button>
+                </div>
+            </div>
+
+            <div style="display: flex; gap: 8px; margin-top: 16px;">
+                <button class="btn btn-primary" onclick="hideModal('vpsManual')">Done</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- QR Modal -->
+    <div class="modal-overlay" id="qrModal">
+        <div class="modal-content" style="text-align: center;">
+            <h2 id="qr_title">Subscription QR</h2>
+            <div style="background: #fff; padding: 12px; border-radius: 16px; display: inline-block; margin: 16px 0;">
+                <img id="qr_img" alt="QR" style="width: 200px; height: 200px; display: block;">
+            </div>
+            <input type="text" id="qr_text" readonly>
+            <div style="display: flex; gap: 8px; margin-top: 10px;">
+                <button class="btn btn-secondary" style="flex:1" onclick="hideModal('qr')">Close</button>
+                <button class="btn btn-primary" style="flex:2" onclick="copyQrText()">Copy Link</button>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- User Edit Modal -->
+    <div class="modal-overlay" id="userEditModal">
+        <div class="modal-content">
+            <h2>Edit User</h2>
+            <input type="hidden" id="e_userid">
+            <label>Display Name</label>
+            <input type="text" id="e_name">
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+                <div>
+                    <label>Quota (GB)</label>
+                    <input type="number" step="0.1" id="e_quota">
+                </div>
+                <div>
+                    <label>Expiry Date</label>
+                    <input type="date" id="e_expiry">
+                </div>
+            </div>
+            <div style="display: flex; gap: 16px; margin: 8px 0 12px 0;">
+                <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 13px;">
+                    <input type="checkbox" id="e_allow_direct" style="width: auto; margin: 0;"> Direct
+                </label>
+                <label id="e_cdn_label"
+                    style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 13px;">
+                    <input type="checkbox" id="e_allow_cdn" style="width: auto; margin: 0;"> CDN (Domain)
+                </label>
+            </div>
+            <div style="display: flex; gap: 8px; margin-top: 10px;">
+                <button class="btn btn-secondary" onclick="hideModal('userEdit')">Cancel</button>
+                <button class="btn btn-primary" onclick="saveUserEdit()">Save Changes</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function showEditUserModal(uid) {
+            var user = userCache.find(u => u.user_id === uid);
+            if (!user) return;
+
+            document.getElementById('e_userid').value = user.user_id;
+            document.getElementById('e_name').value = user.display_name;
+            document.getElementById('e_quota').value = user.quota_gb;
+            document.getElementById('e_expiry').value = user.expiry_date || '';
+            document.getElementById('e_allow_direct').checked = user.allow_direct !== false;
+            document.getElementById('e_allow_cdn').checked = user.allow_cdn !== false;
+
+            var hasDomain = window.currentStatus && window.currentStatus.dashboard_domain;
+            var cdnCheck = document.getElementById('e_allow_cdn');
+            var cdnLabel = document.getElementById('e_cdn_label');
+            if (!hasDomain) {
+                cdnCheck.disabled = true;
+                cdnLabel.style.opacity = '0.4';
+            } else {
+                cdnCheck.disabled = false;
+                cdnLabel.style.opacity = '1';
+            }
+
+            showModal('userEdit');
+        }
+
+        function saveUserEdit() {
+            var id = document.getElementById('e_userid').value;
+            var data = {
+                display_name: document.getElementById('e_name').value,
+                quota_gb: document.getElementById('e_quota').value,
+                expiry_date: document.getElementById('e_expiry').value,
+                allow_direct: document.getElementById('e_allow_direct').checked,
+                allow_cdn: document.getElementById('e_allow_cdn').checked
+            };
+
+            api('POST', '/api/users/' + id + '/update', data, function (r) {
+                if (r.ok) { hideModal('userEdit'); loadUsers(); }
+                else toast(r.error || "Failed to update user");
+            });
+        }
+        var busy = false;
+        var autoLoadTimer = null;
+        var userCache = [];
+        var serverCache = [];
+        var activeTab = 'overview';
+
+        // Helper: API calls
+        function api(method, path, body, cb) {
+            var x = new XMLHttpRequest();
+            x.open(method, path, true);
+            if (body) x.setRequestHeader('Content-Type', 'application/json');
+            var token = localStorage.getItem('auth_token');
+            if (token) x.setRequestHeader('X-Auth-Token', token);
+            x.onreadystatechange = function () {
+                if (x.readyState === 4) {
+                    if (x.status === 401 && path !== '/api/login') { showLogin(); return; }
+                    var resp = {}; try { resp = JSON.parse(x.responseText); } catch (e) { }
+                    cb(resp, x.status);
+                }
+            };
+            x.send(body ? JSON.stringify(body) : null);
+        }
+
+        // UI: Tab Switching
+        function switchTab(tabId) {
+            activeTab = tabId;
+            document.querySelectorAll('.tab-view').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+
+            var target = document.getElementById(tabId + '_tab');
+            if (target) target.classList.add('active');
+
+            // Find nav item by index or text
+            var navItems = document.querySelectorAll('.nav-item');
+            var tabs = ['overview', 'servers', 'accounts', 'users', 'settings'];
+            var idx = tabs.indexOf(tabId);
+            if (idx !== -1) navItems[idx].classList.add('active');
+
+            if (tabId === 'settings') refreshLogs();
+            window.scrollTo(0, 0);
+        }
+
+        // UI: Login/Dash Toggle
+        function showLogin() {
+            document.getElementById('dashboard_view').style.display = 'none';
+            document.getElementById('navbar').style.display = 'none';
+            document.getElementById('login_view').style.display = 'flex';
+            if (autoLoadTimer) { clearInterval(autoLoadTimer); autoLoadTimer = null; }
+        }
+
+        function showDash() {
+            document.getElementById('login_view').style.display = 'none';
+            document.getElementById('dashboard_view').style.display = 'block';
+            document.getElementById('navbar').style.display = 'flex';
+            if (!autoLoadTimer) { autoLoadTimer = setInterval(load, 5000); }
+        }
+
+        // Logic: Auth
+        function doLogin() {
+            var u = document.getElementById('l_user').value;
+            var p = document.getElementById('l_pass').value;
+            if (!u || !p) { toast('Enter username and password'); return; }
+            var token = btoa(u + ':' + p);
+            api('POST', '/api/login', { token: token }, function (d, status) {
+                if (status === 200) {
+                    localStorage.setItem('auth_token', token);
+                    showDash();
+                    load();
+                } else {
+                    toast(d.error || 'Invalid credentials');
+                }
+            });
+        }
+
+        function doLogout() {
+            localStorage.removeItem('auth_token');
+            showLogin();
+        }
+
+        // Logic: Load Data
+        function load() {
+            api('GET', '/api/status?t=' + Date.now(), null, function (d, status) {
+                if (!d) return;
+                window.currentStatus = d;
+                if (status !== 200) { showLogin(); return; }
+                showDash();
+
+                var isConnected = d.tunnel_status === 'Connected';
+                var isSyncing = d.tunnel_status === 'Syncing';
+
+                // Find counts for Topology
+                var onlineCount = 0;
+                if (d.servers) {
+                    d.servers.forEach(s => {
+                        if (!s.is_default && s.ping > 0) onlineCount++;
+                    });
+                }
+
+                // Campus Node
+                document.getElementById('topo_acc').textContent = d.aut_account || 'No Account';
+                document.getElementById('node_campus').className = 'topo-node active success';
+
+                // Bridge Node
+                var bridgeNode = document.getElementById('node_bridge');
+                var bridgeStatus = document.getElementById('topo_bridge_status');
+                bridgeStatus.textContent = isConnected ? 'Gateway Active' : (isSyncing ? 'Syncing...' : 'Matrix Idle');
+                if (isConnected || isSyncing) {
+                    bridgeNode.classList.add('active');
+                    if (isConnected) bridgeNode.classList.add('success');
+                    else bridgeNode.classList.remove('success');
+                } else {
+                    bridgeNode.classList.remove('active', 'success');
+                }
+
+                // VPN Node (Server Pool Concept)
+                var vpnNode = document.getElementById('node_vpn');
+                var vpnName = document.getElementById('topo_vpn_name');
+                vpnName.textContent = onlineCount > 0 ? onlineCount + ' Nodes Pool' : 'Waiting...';
+                if (isConnected && onlineCount > 0) {
+                    vpnNode.classList.add('active', 'success');
+                } else {
+                    vpnNode.classList.remove('active', 'success');
+                }
+
+                // Lines and Flow
+                var l1 = document.getElementById('l1');
+                var l2 = document.getElementById('l2');
+                var f1 = document.getElementById('f1');
+                var f2 = document.getElementById('f2');
+
+                if (isConnected || isSyncing) {
+                    l1.classList.add('active');
+                    f1.classList.add('animate-flow');
+                } else {
+                    l1.classList.remove('active');
+                    f1.classList.remove('animate-flow');
+                }
+
+                if (isConnected) {
+                    l2.classList.add('active');
+                    f2.classList.add('animate-flow');
+                } else {
+                    l2.classList.remove('active');
+                    f2.classList.remove('animate-flow');
+                }
+
+                // Status Pill
+                var tsVal = document.getElementById('ts_val');
+                var tsPill = document.getElementById('ts_pill');
+                tsVal.textContent = isConnected ? 'CONNECTED' : (isSyncing ? 'SYNCING' : 'OFFLINE');
+                tsPill.className = 'status-pill ' + (isConnected ? 'on' : 'off');
+
+                var pingContainer = document.getElementById('ping_progress_container');
+                if (pingContainer) {
+                    if (d.is_pinging) {
+                        pingContainer.style.display = 'block';
+                        document.getElementById('ping_progress_text').textContent = d.ping_progress + '%';
+                        document.getElementById('ping_progress_fill').style.width = d.ping_progress + '%';
+                    } else {
+                        pingContainer.style.display = 'none';
+                    }
+                }
+
+                var warn = document.getElementById('setup_warning');
+                if (isConnected) {
+                    warn.style.display = 'none';
+                } else if (d.tunnel_status && d.tunnel_status.includes('Error')) {
+                    warn.style.display = 'block';
+                    api('GET', '/api/vps_config', null, function (cv) {
+                        if (cv.ok) document.getElementById('vps_text_manual').value = cv.frps_toml;
+                    });
+                } else {
+                    warn.style.display = 'none';
+                }
+
+                // Domain Settings
+                var setInp = {
+                    's_dash_domain': d.dashboard_domain,
+                    's_vps_ip': d.vps_ip,
+                    's_ping_timeout': d.ping_timeout_ms,
+                    's_vless_port': d.vless_port,
+                    's_frp_port': d.frp_server_port,
+                    's_admin_user': d.dashboard_user,
+                    's_check_interval': d.check_interval_seconds,
+                    's_th_daily': d.thresholds ? d.thresholds.daily_gb : 0,
+                    's_th_weekly': d.thresholds ? d.thresholds.weekly_gb : 0,
+                    's_th_monthly': d.thresholds ? d.thresholds.monthly_gb : 0,
+                    's_th_free': d.thresholds ? d.thresholds.free_gb : 115.0,
+                    's_th_session': d.thresholds ? d.thresholds.session_gb : 1.0,
+                    's_max_logs': d.max_log_size || 100,
+                    's_ping_loop': d.ping_interval_seconds || 300
+                };
+                for (var id in setInp) {
+                    var el = document.getElementById(id);
+                    if (el && !el.value) el.value = setInp[id] || '';
+                }
+
+                // Usage Bars (Overview)
+                renderUsageBars(d);
+
+                // System Stats
+                if (d.system_stats) {
+                    var ss = d.system_stats;
+                    document.getElementById('sys_os').textContent = ss.os || 'win32';
+                    document.getElementById('cpu_val').textContent = ss.cpu + '%';
+                    document.getElementById('cpu_fill').style.width = ss.cpu + '%';
+                    document.getElementById('ram_val').textContent = ss.ram_used_pct + '%';
+                    document.getElementById('ram_fill').style.width = ss.ram_used_pct + '%';
+
+                    // Adjust colors based on usage
+                    document.getElementById('cpu_fill').className = 'progress-fill ' + (ss.cpu > 80 ? 'fill-red' : (ss.cpu > 50 ? 'fill-orange' : 'fill-blue'));
+                    document.getElementById('ram_fill').className = 'progress-fill ' + (ss.ram_used_pct > 85 ? 'fill-red' : (ss.ram_used_pct > 60 ? 'fill-orange' : 'fill-green'));
+                }
+
+                // Node counts
+                if (d.node_counts) {
+                    document.getElementById('node_online_ratio').textContent = d.node_counts.online + ' / ' + d.node_counts.total;
+                    var nodeRatioEl = document.getElementById('node_online_ratio');
+                    if (d.node_counts.online === 0 && d.node_counts.total > 0) nodeRatioEl.style.color = 'var(--accent-red)';
+                    else if (d.node_counts.online < d.node_counts.total) nodeRatioEl.style.color = 'var(--accent-orange)';
+                    else nodeRatioEl.style.color = 'var(--accent-green)';
+                }
+
+                if (d.ok) {
+                    renderServers(d);
+                    renderAccounts(d);
+
+                    // Render Logs
+                    if (d.logs) {
+                        var logHtml = '';
+                        for (var i = 0; i < d.logs.length; i++) {
+                            logHtml += renderLogLine(d.logs[i]);
+                        }
+                        var logBox = document.getElementById('log_content');
+                        var shouldScroll = (logBox.parentElement.scrollTop + logBox.parentElement.offsetHeight >= logBox.parentElement.scrollHeight - 20);
+                        logBox.innerHTML = logHtml;
+                        if (shouldScroll) logBox.parentElement.scrollTop = logBox.parentElement.scrollHeight;
+                    }
+                }
+
+                // Users
+                loadUsers();
+            });
+        }
+
+        function renderUsageBars(d) {
+            var ub = '';
+            var cu = d.current_usage || {};
+            var lim = { Daily: 3, Weekly: 12, Monthly: 30, Free: 120 };
+            var vals = { Daily: cu.daily_used, Weekly: cu.weekly_used, Monthly: cu.monthly_used, Free: cu.free_used };
+            for (var k in lim) {
+                var val = vals[k] || 0, l = lim[k], pct = Math.min(100, (val / l) * 100);
+                var color = pct < 75 ? 'fill-green' : (pct < 90 ? 'fill-orange' : 'fill-red');
+                ub += `<div class="progress-container">
+            <div class="progress-label"><span>${k}</span><span>${val.toFixed(1)} / ${l} GB</span></div>
+            <div class="progress-track"><div class="progress-fill ${color}" style="width:${pct}%"></div></div>
+        </div>`;
+            }
+            document.getElementById('usage_bars').innerHTML = ub;
+        }
+
+        function renderServers(d) {
+            var masterHtml = '';
+            var serverHtml = '';
+            serverCache = d.servers || [];
+
+            // Determine fastest for badge
+            var fastestIdx = -1;
+            var minPing = 99999;
+            for (var i = 0; i < serverCache.length; i++) {
+                var s = serverCache[i];
+                if (!s.is_default && s.ping > 0 && s.ping < minPing) {
+                    minPing = s.ping;
+                    fastestIdx = i;
+                }
+            }
+
+            // Direct Connection Card
+            for (var i = 0; i < serverCache.length; i++) {
+                var s = serverCache[i];
+                if (s.is_default) {
+                    masterHtml += `<div class="card" style="margin-bottom:0; background: linear-gradient(135deg, rgba(var(--accent-green-rgb), 0.05), transparent);">
+                <div style="display:flex; justify-content: space-between; align-items: center;">
+                    <div style="display:flex; gap:12px; align-items:center;">
+                        <div style="width:40px; height:40px; border-radius:12px; background: rgba(var(--accent-green-rgb), 0.1); display:flex; align-items:center; justify-content:center; font-size:20px;">🌐</div>
+                        <div>
+                            <div style="font-weight:800; font-size:14px; color: #fff;">Direct Connection</div>
+                            <div class="muted" style="font-size:10px; margin-top: 2px;">Low Latency • Academic Network</div>
+                        </div>
+                    </div>
+                    <div class="status-pill on"><div class="status-dot"></div>System</div>
+                </div>
+            </div>`;
+                    break;
+                }
+            }
+
+            // Subscriptions
+            var subs = d.subscriptions || [];
+            for (var i = 0; i < subs.length; i++) {
+                var sub = subs[i];
+                masterHtml += `<div class="card" style="margin-bottom:0;">
+            <div style="display:flex; justify-content: space-between; align-items: center;">
+                <div style="overflow: hidden; flex: 1; margin-right: 12px;">
+                    <div style="font-weight:700; font-size:13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #fff;">${sub.name}</div>
+                    <div class="muted" style="font-size: 9px; margin-top: 2px;">Updated: ${sub.last_update}</div>
+                </div>
+                <div style="display: flex; gap: 6px;">
+                    <button class="btn btn-secondary btn-icon" onclick="updSub('${sub.url}')" title="Refresh">🔄</button>
+                    <button class="btn btn-danger btn-icon" onclick="delSub('${sub.url}')" title="Remove">✕</button>
+                </div>
+            </div>
+        </div>`;
+            }
+            document.getElementById('master_list').innerHTML = masterHtml;
+
+            var sortable = [];
+            for (var i = 0; i < serverCache.length; i++) {
+                if (!serverCache[i].is_default) {
+                    sortable.push({ index: i, data: serverCache[i] });
+                }
+            }
+
+            sortable.sort(function (a, b) {
+                var pA = a.data.ping === undefined ? -1 : a.data.ping;
+                var pB = b.data.ping === undefined ? -1 : b.data.ping;
+                if (pA < 0 && pB < 0) return 0;
+                if (pA < 0) return 1;
+                if (pB < 0) return -1;
+                return pA - pB;
+            });
+
+            for (var j = 0; j < sortable.length; j++) {
+                var item = sortable[j], s = item.data, i = item.index;
+                var p = (s.ping !== undefined && s.ping >= 0) ? s.ping + 'ms' : (s.ping < 0 ? 'OFF' : '...');
+                var pColor = s.ping >= 0 && s.ping < 300 ? 'var(--accent-green)' : (s.ping >= 300 && s.ping < 800 ? 'var(--accent-orange)' : 'var(--accent-red)');
+
+                serverHtml += `<div class="card-compact">
+            <div style="display:flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px;">
+                <div style="display:flex; gap:8px; align-items:center; overflow: hidden;">
+                    <span style="font-size: 16px;">${s.flag || '🌐'}</span>
+                    <div style="overflow: hidden;">
+                        <div style="font-weight:800; font-size:11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #fff;">${s.name}</div>
+                        <div class="muted" style="font-size: 9px; text-transform: uppercase; font-weight: 700; opacity: 0.5;">${s.protocol}</div>
+                    </div>
+                </div>
+                <div id="lat_${i}" style="font-size: 10px; font-weight:900; color: ${pColor}; background: rgba(0,0,0,0.2); padding: 2px 6px; border-radius: 4px;">${p}</div>
+            </div>
+            <div style="display: flex; gap: 6px; justify-content: flex-end;">
+                <button class="btn btn-secondary btn-icon" onclick="png(${i})" style="background: rgba(255,255,255,0.03);">⚡</button>
+                <button class="btn btn-danger btn-icon" onclick="delSrv(${i})" style="background: rgba(255,82,82,0.03);">✕</button>
+            </div>
+        </div>`;
+            }
+            document.getElementById('list').innerHTML = serverHtml || '<div class="empty-state">No servers available.</div>';
+        }
+
+        function renderAccounts(d) {
+            var html = '';
+            var accounts = d.aut_accounts || [];
+            for (var i = 0; i < accounts.length; i++) {
+                var a = accounts[i], active = (i === d.aut_current_idx);
+                html += `<div class="card" style="${active ? 'border-color: rgba(var(--accent-green-rgb), 0.2); background: rgba(var(--accent-green-rgb), 0.02);' : ''}">
+            <div style="display:flex; justify-content: space-between; align-items: center;">
+                <div style="display:flex; gap:12px; align-items:center;">
+                    <div style="width:36px; height:36px; border-radius:10px; background: rgba(255,255,255,0.05); display:flex; align-items:center; justify-content:center; font-size:16px;">🎓</div>
+                    <div>
+                        <div style="font-weight:700; font-size:14px; color: #fff;">${a.username}</div>
+                        <div class="muted" style="font-size:10px;">AUT LDAP Account</div>
+                    </div>
+                </div>
+                <div style="display: flex; gap: 8px; align-items: center;">
+                    ${active ? '<div class="status-pill on"><div class="status-dot"></div>Active</div>' : `<button class="btn btn-ghost" onclick="autSw(${i})">Switch</button>`}
+                    <button class="btn btn-danger btn-icon" onclick="delAut('${a.username}')" title="Remove Account">✕</button>
+                </div>
+            </div>
+        </div>`;
+            }
+            document.getElementById('aut_list').innerHTML = html || '<div class="empty-state"><div class="empty-icon">🎓</div>No accounts added</div>';
+        }
+
+        function delAut(username) {
+            if (!confirm('Remove account ' + username + '?')) return;
+            api('POST', '/api/aut_remove', { username: username }, function (d) {
+                if (d.ok) { toast('Account removed'); load(); }
+                else toast('Failed to remove');
+            });
+        }
+
+        function loadUsers() {
+            api('GET', '/api/users?t=' + Date.now(), null, function (u) {
+                if (!u || !u.ok) return;
+                userCache = u.users || [];
+                var active = 0, usage = 0, alerts = 0, html = '';
+
+                userCache.forEach(user => {
+                    var enabled = user.enabled !== false;
+                    if (enabled) active++;
+                    var uBytes = (user.usage_bytes || 0);
+                    usage += uBytes;
+                    var quota = (user.quota_bytes || 0);
+                    var pct = quota ? (uBytes / quota * 100) : 0;
+                    if (pct >= 85) alerts++;
+
+                    var statusText = !enabled ? 'Disabled' : (quota ? Math.round(pct) + '% Used' : 'Unlimited');
+                    var pillClass = enabled ? 'on' : 'off';
+
+                    // Adjust pill color dynamically
+                    var customStyle = '';
+                    if (!enabled) {
+                        pillClass = 'off';
+                    } else if (quota) {
+                        if (pct >= 85) {
+                            pillClass = 'off';
+                            customStyle = 'background: rgba(239, 68, 68, 0.1); color: var(--accent-red); border: 1px solid rgba(239, 68, 68, 0.2);';
+                        } else if (pct >= 70) {
+                            customStyle = 'background: rgba(245, 158, 11, 0.1); color: var(--accent-orange); border: 1px solid rgba(245, 158, 11, 0.2);';
+                        }
+                    } else {
+                        // Unlimited badge styling
+                        customStyle = 'background: rgba(59, 130, 246, 0.1); color: var(--accent-blue); border: 1px solid rgba(59, 130, 246, 0.2);';
+                    }
+
+                    var usageText = fmtBytes(uBytes) + (quota ? ' / ' + fmtBytes(quota) : ' / ∞');
+
+                    // Calculate Days Remaining
+                    var expText = '∞';
+                    if (user.expiry_date) {
+                        var expDate = new Date(user.expiry_date);
+                        var today = new Date();
+                        today.setHours(0, 0, 0, 0);
+                        var diff = expDate.getTime() - today.getTime();
+                        var days = Math.ceil(diff / (1000 * 60 * 60 * 24));
+                        if (days < 0) expText = 'Expired';
+                        else if (days === 0) expText = 'Today';
+                        else expText = days + 'd left';
+                    }
+
+                    html += `<div class="card-compact" style="${!enabled ? 'opacity: 0.6;' : ''}">
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px;">
+                    <div style="overflow: hidden; flex: 1; padding-right: 8px;">
+                        <div style="font-weight:700; font-size:13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #fff;">${escapeHtml(user.display_name || user.user_id)}</div>
+                        <div class="muted" style="font-size:10px; margin-top: 2px; font-family: monospace;">${user.user_id}</div>
+                    </div>
+                    <div class="status-pill ${pillClass}" style="font-size: 9px; padding: 2px 6px; white-space: nowrap; ${customStyle}">${statusText}</div>
+                </div>
+                
+                <div style="display: flex; justify-content: space-between; font-size: 10px; margin-bottom: 6px; font-weight: 600; opacity: 0.8;">
+                    <span>⬇️ ${usageText}</span>
+                    <span>⏳ ${expText}</span>
+                </div>
+                
+                ${quota ? `<div class="progress-track" style="margin-bottom: 10px; height: 4px;"><div class="progress-fill fill-blue" style="width:${Math.min(100, pct)}%"></div></div>` : '<div style="height: 14px;"></div>'}
+                
+                <div style="display: flex; gap: 4px; justify-content: space-between; margin-top: auto;">
+                    <button class="btn btn-secondary btn-icon" onclick="copyText('${user.subscription_url}')" title="Copy Link" style="background: rgba(255,255,255,0.03); padding: 4px 0; font-size: 11px;">📋</button>
+                    <button class="btn btn-secondary btn-icon" onclick="showQrModal('${user.subscription_url}', '${user.display_name || user.user_id}')" title="QR Code" style="background: rgba(255,255,255,0.03); padding: 4px 0; font-size: 11px;">📱</button>
+                    <button class="btn btn-secondary btn-icon" onclick="showEditUserModal('${user.user_id}')" title="Edit" style="background: rgba(255,255,255,0.03); padding: 4px 0; font-size: 11px;">✏️</button>
+                    <button class="btn ${enabled ? 'btn-secondary' : 'btn-primary'} btn-icon" onclick="toggleUser('${user.user_id}', ${!enabled})" title="${enabled ? 'Disable' : 'Enable'}" style="${enabled ? 'background: rgba(255,255,255,0.03);' : ''} padding: 4px 0; font-size: 11px;">${enabled ? '⏸️' : '▶️'}</button>
+                    ${user.user_id.toLowerCase() === 'admin' ? '' : `<button class="btn btn-danger btn-icon" onclick="deleteUser('${user.user_id}')" title="Delete" style="background: rgba(255,82,82,0.05); padding: 4px 0; font-size: 11px;">✕</button>`}
+                </div>
+            </div>`;
+                });
+
+                document.getElementById('us_active').textContent = active;
+                document.getElementById('us_usage').textContent = fmtBytes(usage);
+                document.getElementById('us_alerts').textContent = alerts;
+
+                if (html) {
+                    document.getElementById('user_list').innerHTML = '<div class="grid-compact">' + html + '</div>';
+                } else {
+                    document.getElementById('user_list').innerHTML = '<div class="empty-state"><div class="empty-icon">👥</div>No users found</div>';
+                }
+            });
+        }
+
+        // Actions
+        function autSw(i) {
+            if (busy) return; busy = true;
+            api('POST', '/api/aut_switch/' + i, null, function (d) {
+                busy = false;
+                if (d.ok) toast('Switching account...');
+                else toast('Failed to switch');
+                setTimeout(load, 2000);
+            });
+        }
+
+        function png(i) {
+            var el = document.getElementById('lat_' + i);
+            if (!el) return;
+            el.textContent = '...';
+            el.style.color = 'var(--muted)';
+
+            api('GET', '/api/ping/' + i, null, function (d) {
+                if (d.ok) {
+                    var ms = d.ms;
+                    if (window.currentStatus && window.currentStatus.servers && window.currentStatus.servers[i]) {
+                        window.currentStatus.servers[i].ping = ms;
+                        renderServers(window.currentStatus);
+                    } else {
+                        // Fallback if currentStatus is not yet loaded
+                        if (ms < 0) {
+                            el.textContent = 'OFF';
+                            el.style.color = 'var(--accent-red)';
+                        } else {
+                            el.textContent = ms + 'ms';
+                            if (ms < 300) el.style.color = 'var(--accent-green)';
+                            else if (ms < 800) el.style.color = 'var(--accent-orange)';
+                            else el.style.color = 'var(--accent-red)';
+                        }
+                    }
+                } else {
+                    el.textContent = 'Error';
+                    el.style.color = 'var(--accent-red)';
+                }
+            });
+        }
+        function pingAll() {
+            toast('Pinging all servers...');
+            api('POST', '/api/ping_all', null, function (d) {
+                if (d.ok) {
+                    // The status loop will eventually pick up the results, 
+                    // but we can also manually trigger a refresh after a bit.
+                    setTimeout(load, 3000);
+                }
+            });
+        }
+
+        function addSub() {
+            var n = document.getElementById('sub_name').value;
+            var u = document.getElementById('sub_url').value;
+            if (!u) return;
+            api('POST', '/api/subscriptions/add', { name: n, url: u }, function (d) {
+                if (d.ok) { toast('Subscription added'); hideModal('sub'); load(); }
+                else toast(d.message || 'Failed to add');
+            });
+        }
+
+        function delSub(url) {
+            if (!confirm('Delete this subscription? All its servers will be removed.')) return;
+            api('POST', '/api/subscriptions/delete', { url: url }, function (d) {
+                if (d.ok) { toast('Subscription deleted'); load(); }
+            });
+        }
+
+        function updSub(url) {
+            toast('Updating servers...');
+            api('POST', '/api/subscriptions/update', { url: url }, function (d) {
+                if (d.ok) { toast(d.message); load(); }
+                else toast(d.message || 'Update failed');
+            });
+        }
+
+        function delSrv(i) {
+            if (!confirm('Delete this server?')) return;
+            api('POST', '/api/remove/' + i, null, function (d) {
+                if (d.ok) { toast('Server removed'); load(); }
+            });
+        }
+
+        function saveAllSettings() {
+            var ip = document.getElementById('s_vps_ip').value.trim();
+            var dom = document.getElementById('s_dash_domain').value.trim();
+            if (!dom) dom = ip;
+
+            var data = {
+                dashboard_domain: dom,
+                vps_ip: ip,
+                ping_timeout_ms: parseInt(document.getElementById('s_ping_timeout').value) || 2000,
+                vless_port: parseInt(document.getElementById('s_vless_port').value) || 4433,
+                frp_server_port: parseInt(document.getElementById('s_frp_port').value) || 443,
+                dashboard_user: document.getElementById('s_admin_user').value || 'admin',
+                dashboard_pass: document.getElementById('s_admin_pass').value || window.currentStatus.dashboard_pass,
+                check_interval_seconds: parseInt(document.getElementById('s_check_interval').value) || 60,
+                max_log_size: parseInt(document.getElementById('s_max_logs').value) || 100,
+                ping_interval_seconds: parseInt(document.getElementById('s_ping_loop').value) || 300,
+                thresholds: {
+                    daily_gb: parseFloat(document.getElementById('s_th_daily').value) || 2.8,
+                    weekly_gb: parseFloat(document.getElementById('s_th_weekly').value) || 11.5,
+                    monthly_gb: parseFloat(document.getElementById('s_th_monthly').value) || 29.0,
+                    free_gb: parseFloat(document.getElementById('s_th_free').value) || 115.0,
+                    session_gb: parseFloat(document.getElementById('s_th_session').value) || 1.0
+                }
+            };
+            api('POST', '/api/settings', data, function (res) {
+                if (res.ok) { toast('All settings updated successfully'); load(); }
+                else toast('Update failed');
+            });
+        }
+
+        function exportConfig() {
+            api('POST', '/api/system/export', null, function (d) {
+                if (d.ok) {
+                    var blob = new Blob([JSON.stringify(d.bundle, null, 2)], { type: 'application/json' });
+                    var url = URL.createObjectURL(blob);
+                    var a = document.createElement('a');
+                    a.href = url;
+                    a.download = 'aut_bridge_backup_' + new Date().toISOString().split('T')[0] + '.json';
+                    a.click();
+                    toast('Backup exported successfully');
+                }
+            });
+        }
+
+        function importConfig(input) {
+            if (!input.files || !input.files[0]) return;
+            var reader = new FileReader();
+            reader.onload = function (e) {
+                try {
+                    var bundle = JSON.parse(e.target.result);
+                    if (confirm("RESTORE BACKUP? This will overwrite your current settings, users, and servers.")) {
+                        api('POST', '/api/system/import', { bundle: bundle }, function (res) {
+                            if (res.ok) { toast('Restore complete! Reloading...'); setTimeout(() => location.reload(), 2000); }
+                            else toast('Import failed: ' + res.error);
+                        });
+                    }
+                } catch (ex) { toast('Invalid backup file'); }
+            };
+            reader.readAsText(input.files[0]);
+        }
+
+        function runQuickVPS() {
+            var ip = document.getElementById('vps_ssh_ip_quick').value.trim();
+            var user = document.getElementById('vps_ssh_user_quick').value.trim() || 'root';
+            var pass = document.getElementById('vps_ssh_pass_quick').value;
+            if (!ip || !pass) { toast('Enter IP and SSH password'); return; }
+
+            var btn = document.querySelector('button[onclick="runQuickVPS()"]');
+            var originalText = btn.innerHTML;
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner" style="display:inline-block; vertical-align:middle; margin-right:8px;"></span> Deploying...';
+
+            toast('Automation started. Switching to Terminal view...');
+            api('GET', '/api/vps_config', null, function (cfg) {
+                if (!cfg.ok) { btn.disabled = false; btn.innerHTML = originalText; return; }
+                var payload = { vps_ip: ip, ssh_user: user, ssh_pass: pass, frps_toml: cfg.frps_toml };
+                api('POST', '/api/setup_vps', payload, function (res) {
+                    if (res.ok) {
+                        switchTab('overview');
+                        var logWin = document.getElementById('log_window');
+                        if (logWin) logWin.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+                        var vpsPoll = setInterval(function () {
+                            api('GET', '/api/logs', null, function (d) {
+                                if (d.ok && d.logs) {
+                                    var html = d.logs.map(line => renderLogLine(line)).join('');
+                                    var content = document.getElementById('log_content');
+                                    if (content) {
+                                        content.innerHTML = html;
+                                        content.parentElement.scrollTop = content.parentElement.scrollHeight;
+                                    }
+
+                                    var fullLog = d.logs.join('\n');
+                                    var isDone = fullLog.includes('VPS Automation Completed:');
+                                    var isFailed = fullLog.includes('VPS Automation Failed:');
+
+                                    if (isDone || isFailed) {
+                                        clearInterval(vpsPoll);
+                                        if (btn) { btn.disabled = false; btn.innerHTML = originalText; }
+                                        toast(isDone ? 'VPS Automation Successful!' : 'VPS Automation Failed!');
+                                        load();
+                                    }
+                                }
+                            });
+                        }, 1500);
+
+                        setTimeout(function () {
+                            clearInterval(vpsPoll);
+                            if (btn && btn.disabled) { btn.disabled = false; btn.innerHTML = originalText; }
+                        }, 180000);
+                    }
+                    else {
+                        toast('Failed to start automation');
+                        if (btn) { btn.disabled = false; btn.innerHTML = originalText; }
+                    }
+                });
+            });
+        }
+
+        function refreshLogs() {
+            api('GET', '/api/logs', null, function (d) {
+                if (d.ok && d.logs) {
+                    var html = d.logs.map(line => renderLogLine(line)).join('');
+                    var content = document.getElementById('log_content');
+                    if (content) {
+                        var container = content.parentElement;
+                        var shouldScroll = (container.scrollTop + container.offsetHeight >= container.scrollHeight - 20);
+                        content.innerHTML = html;
+                        if (shouldScroll) container.scrollTop = container.scrollHeight;
+                    }
+                }
+            });
+        }
+
+        function clearLogs() {
+            if (!confirm("Clear log buffer?")) return;
+            api('POST', '/api/logs/clear', null, function (d) {
+                if (d.ok) { toast("Logs cleared"); refreshLogs(); }
+            });
+        }
+
+        function renderLogLine(line) {
+            var cls = '';
+            if (line.includes('ERROR')) cls = 'log-error';
+            else if (line.includes('WARN')) cls = 'log-warn';
+            else if (line.includes('OK') || line.includes('SUCCESS') || line.includes('Established')) cls = 'log-success';
+            else if (line.includes('INFO')) cls = 'log-info';
+            return `<div class="${cls}">${escapeHtml(line)}</div>`;
+        }
+
+        function toggleAdvancedSettings() {
+            var area = document.getElementById('advanced_settings_area');
+            var icon = document.getElementById('adv_toggle_icon');
+            if (area.style.display === 'none') {
+                area.style.display = 'block';
+                icon.textContent = '▲';
+            } else {
+                area.style.display = 'none';
+                icon.textContent = '▼';
+            }
+        }
+
+        function systemWipe() {
+            if (!confirm("WIPE EVERYTHING? All servers, accounts, and users will be deleted.")) return;
+            api('POST', '/api/system_wipe', null, function (d) {
+                if (d.ok) {
+                    toast('System wipe initiated. Deleting logs and configs...');
+                    setTimeout(() => location.reload(), 3000);
+                }
+            });
+        }
+
+        // Users
+        function addUser() {
+            var id = document.getElementById('u_userid').value;
+            var name = document.getElementById('u_name').value;
+            var quota = document.getElementById('u_quota').value;
+            var expiry = document.getElementById('u_expiry').value;
+            var dir = document.getElementById('u_allow_direct').checked;
+            var cdn = document.getElementById('u_allow_cdn').checked;
+            if (!id) return;
+            api('POST', '/api/users', {
+                user_id: id,
+                display_name: name,
+                quota_gb: quota,
+                expiry_date: expiry,
+                allow_direct: dir,
+                allow_cdn: cdn
+            }, function (r) {
+                if (r.ok) { hideModal('user'); loadUsers(); }
+                else toast(r.error || "Failed to create user");
+            });
+        }
+
+        function toggleUser(id, en) {
+            api('POST', '/api/users/' + id + '/toggle', { enabled: en }, function (r) { if (r.ok) load(); });
+        }
+
+        function deleteUser(id) {
+            if (!confirm('Delete ' + id + '?')) return;
+            api('POST', '/api/users/' + id + '/delete', {}, function (r) { if (r.ok) load(); });
+        }
+
+        // Servers/Accounts Add
+        function addSrv() {
+            var l = document.getElementById('ilink').value.trim();
+            if (!l) return;
+
+            // Extract name from #remark in the link
+            var n = 'New Server';
+            if (l.includes('#')) {
+                try { n = decodeURIComponent(l.split('#').pop()); } catch (e) { n = l.split('#').pop(); }
+            }
+
+            api('POST', '/api/add', { name: n, flag: '🌐', link: l }, function (d) {
+                if (d.ok) {
+                    toast('Server added');
+                    document.getElementById('ilink').value = '';
+                    hideModal('srv');
+                    load();
+                } else {
+                    toast(d.error || 'Failed to add server');
+                }
+            });
+        }
+
+        function addAut() {
+            var u = document.getElementById('auser').value;
+            var p = document.getElementById('apass').value;
+            if (!u || !p) return;
+            api('POST', '/api/aut_add', { username: u, password: p }, function (d) {
+                if (d.ok) { toast('Account added'); hideModal('aut'); load(); }
+            });
+        }
+
+        // Modals
+        function showModal(id) {
+            if (id === 'user') {
+                var hasDomain = window.currentStatus && window.currentStatus.dashboard_domain;
+                var cdnCheck = document.getElementById('u_allow_cdn');
+                var cdnLabel = document.getElementById('u_cdn_label');
+                if (!hasDomain) {
+                    cdnCheck.checked = false;
+                    cdnCheck.disabled = true;
+                    cdnLabel.style.opacity = '0.4';
+                    cdnLabel.title = "No domain configured in Settings";
+                } else {
+                    cdnCheck.disabled = false;
+                    cdnLabel.style.opacity = '1';
+                    cdnLabel.title = "";
+                }
+            }
+            document.getElementById(id + 'Modal').style.display = 'flex';
+        }
+        function hideModal(id) { document.getElementById(id + 'Modal').style.display = 'none'; }
+
+        function showQrModal(url, title) {
+            var u = url || '';
+            if (!u) {
+                // Default to personal VLESS
+                api('GET', '/api/vps_config', null, function (d) {
+                    if (d.ok) openQr(d.vless_link, 'My VLESS Link');
+                });
+            } else {
+                openQr(u, title || 'Subscription QR');
+            }
+        }
+
+        function openQr(url, title) {
+            document.getElementById('qr_title').textContent = title;
+            document.getElementById('qr_text').value = url;
+            document.getElementById('qr_img').src = 'https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=' + encodeURIComponent(url);
+            showModal('qr');
+        }
+
+        function copyQrText() { copyText(document.getElementById('qr_text').value); }
+
+        function copyVLESS() {
+            api('GET', '/api/vps_config', null, function (d) {
+                if (d.ok) copyText(d.vless_link);
+            });
+        }
+
+        function showVPSManual() {
+            api('GET', '/api/vps_config', null, function (d) {
+                if (d.ok) {
+                    document.getElementById('vps_text_manual').value = d.frps_toml;
+                    showModal('vpsManual');
+                }
+            });
+        }
+
+        function copyVPSManual() {
+            var t = document.getElementById('vps_text_manual');
+            t.select();
+            document.execCommand('copy');
+            toast('Config copied!');
+        }
+
+        // Helpers
+        function toast(m) {
+            var t = document.getElementById('toast');
+            t.textContent = m;
+            t.classList.add('show');
+            setTimeout(() => t.classList.remove('show'), 3000);
+        }
+
+        function copyText(text) {
+            var el = document.createElement('textarea');
+            el.value = text;
+            document.body.appendChild(el);
+            el.select();
+            document.execCommand('copy');
+            document.body.removeChild(el);
+            toast('Copied to clipboard');
+        }
+
+        function fmtBytes(n) {
+            n = parseInt(n || 0, 10);
+            var u = ['B', 'KB', 'MB', 'GB', 'TB'], i = 0, v = n;
+            while (v >= 1024 && i < u.length - 1) { v /= 1024; i++; }
+            return v.toFixed(i === 0 ? 0 : 1) + ' ' + u[i];
+        }
+
+        function escapeHtml(s) {
+            return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+        }
+
+        // Init
+        var savedToken = localStorage.getItem('auth_token');
+        if (savedToken) { showDash(); load(); } else { showLogin(); }
+
+    </script>
+</body>
+
+</html>
