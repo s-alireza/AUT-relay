@@ -136,24 +136,6 @@ class ServerManager:
             ''
         ]
 
-        frpc_cfg.extend([
-            '',
-            '[http_tunnel]',
-            'type = tcp',
-            'local_ip = 127.0.0.1',
-            'local_port = {0}'.format(s.get("http_proxy_port", 1080)),
-            'remote_port = {0}'.format(s.get("remote_http_port", 1081)),
-            'use_compression = false',
-            '',
-            '[socks_tunnel]',
-            'type = tcp',
-            'local_ip = 127.0.0.1',
-            'local_port = {0}'.format(s.get("socks_proxy_port", 1082)),
-            'remote_port = {0}'.format(s.get("remote_socks_port", 1083)),
-            'use_compression = false',
-            ''
-        ])
-
         path = os.path.join(self.CONFIG_DIR, "frpc.ini")
         with open(path, "w", encoding="utf-8") as f:
             f.write("\n".join(frpc_cfg))
