@@ -161,14 +161,14 @@ def clear_logs():
 _sys_cache = {"last_update": 0, "stats": None}
 
 def get_system_stats():
-    """Get CPU and RAM stats optimized for legacy Windows (no wmic, slow systeminfo)."""
+    """Get CPU and RAM stats optimized for Windows (handles missing wmic)."""
     import subprocess
     import platform
     import re
     import time
     
     now = time.time()
-    # Cache dynamic stats for 10 seconds, static stats (OS, Total RAM) indefinitely
+    # Cache dynamic stats for 10 seconds
     if _sys_cache["stats"] and (now - _sys_cache["last_update"]) < 10:
         return _sys_cache["stats"]
     
@@ -183,17 +183,15 @@ def get_system_stats():
     try:
         # 1. Get Static Info (Only once)
         if stats["ram_total"] == 0:
-            # Silence systeminfo with stderr redirection
-            si_out = subprocess.check_output("systeminfo", shell=True, stderr=subprocess.STDOUT).decode("utf-8", "ignore")
-            
-            total_m = re.search(r"Total Physical Memory:\s+([0-9,.\s]+)MB", si_out)
-            if total_m:
-                t_mb = int(re.sub(r"[^0-9]", "", total_m.group(1)))
-                stats["ram_total"] = t_mb * 1024 * 1024
-            
-            os_name = re.search(r"OS Name:\s+(.+)", si_out)
-            if os_name:
-                stats["os"] = os_name.group(1).strip()
+            try:
+                # Fallback to systeminfo if wmic is missing
+                out = subprocess.check_output("systeminfo", shell=True, stderr=subprocess.STDOUT).decode("utf-8", "ignore")
+                m = re.search(r"Total Physical Memory:\s+([0-9,.\s]+)MB", out)
+                if m:
+                    t_mb = int(re.sub(r"[^0-9]", "", m.group(1)))
+                    stats["ram_total"] = t_mb * 1024 * 1024
+            except:
+                pass
 
         # 2. Get Dynamic Stats (via typeperf - fast)
         cmd = 'typeperf "\\Processor(_Total)\\% Processor Time" "\\Memory\\Available MBytes" -sc 1'
@@ -201,13 +199,10 @@ def get_system_stats():
         
         lines = [l for l in tp_out.splitlines() if l.startswith('"')]
         if len(lines) >= 2:
-            # Expected format: "datetime","cpu_val","mem_val"
-            # We use a more robust split to handle potential commas in numbers
             vals = re.findall(r'"([^"]+)"', lines[1])
             if len(vals) >= 3:
                 try:
                     cpu_raw = float(vals[1])
-                    # typeperf sometimes returns -1.0 or very large numbers if the counter isn't ready
                     if 0 <= cpu_raw <= 100:
                         stats["cpu"] = int(cpu_raw)
                     
@@ -215,10 +210,9 @@ def get_system_stats():
                     if free_mb >= 0:
                         stats["ram_free"] = free_mb * 1024 * 1024
                         if stats["ram_total"] > 0:
-                            total_mb = stats["ram_total"] / (1024*1024)
-                            used_mb = max(0, total_mb - free_mb)
-                            stats["ram_used_pct"] = round((used_mb / float(total_mb)) * 100, 1)
-                except (ValueError, TypeError):
+                            used_bytes = stats["ram_total"] - stats["ram_free"]
+                            stats["ram_used_pct"] = round((used_bytes / float(stats["ram_total"])) * 100, 1)
+                except:
                     pass
 
         _sys_cache["stats"] = stats

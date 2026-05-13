@@ -18,7 +18,7 @@ class DashboardHandler(BaseHandler):
         ws_path = s.get("vless_ws_path", "/tunnel")
         if not ws_path.startswith("/"): ws_path = "/" + ws_path
         safe_path = "".join([quote(c) if c != "/" else c for c in ws_path])
-        return "vless://{0}@{1}:8080?type=ws&security=none&encryption=none&path={2}&host={1}&ed=2048#AUT-Bridge".format(uuid_val, vps_ip, safe_path)
+        return "vless://{0}@{1}:8080?type=ws&security=none&encryption=none&path={2}&host={1}#AUT-Bridge".format(uuid_val, vps_ip, safe_path)
 
     def do_GET(self):
         mgr = self.server.mgr
@@ -87,9 +87,11 @@ class DashboardHandler(BaseHandler):
             s = mgr.settings
             frps_cfg = [
                 'bindPort = {0}'.format(s.get("frp_server_port", 443)),
+                'quicBindPort = {0}'.format(s.get("frp_server_port", 443)),
                 'auth.method = "token"',
                 'auth.token = "{0}"'.format(s.get("frp_token", "")),
-                'transport.tls.force = true'
+                'transport.tls.force = true',
+                'transport.maxPoolCount = 100'
             ]
             
             toml_val = "\n".join(frps_cfg)

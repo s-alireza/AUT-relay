@@ -1323,10 +1323,12 @@
                         style="height: 120px; font-family: monospace; font-size: 10px; margin-bottom: 8px; background: #000;"># Open Firewall Ports
 if command -v ufw >/dev/null 2>&1; then
     sudo ufw allow 443/tcp
+    sudo ufw allow 443/udp
     sudo ufw allow 8080/tcp
     sudo ufw allow 8880/tcp
 elif command -v iptables >/dev/null 2>&1; then
     sudo iptables -I INPUT -p tcp --dport 443 -j ACCEPT
+    sudo iptables -I INPUT -p udp --dport 443 -j ACCEPT
     sudo iptables -I INPUT -p tcp --dport 8080 -j ACCEPT
     sudo iptables -I INPUT -p tcp --dport 8880 -j ACCEPT
     sudo iptables-save > /etc/iptables/rules.v4 2>/dev/null

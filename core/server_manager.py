@@ -49,7 +49,7 @@ class ServerManager:
         self._last_xray_stats = {} 
         self.subscriptions = []
         self.last_pings = {}
-        self.ping_timeout_ms = self.settings.get("ping_timeout_ms", 2000)
+        self.ping_timeout_ms = self.settings.get("ping_timeout_ms", 3000)
         u.set_max_log_size(self.settings.get("max_log_size", 100))
         
         self._rebuild_timer = None
@@ -110,24 +110,29 @@ class ServerManager:
             '[common]',
             'server_addr = {0}'.format(vps_ip),
             'server_port = {0}'.format(s.get("frp_server_port", 443)),
-            'protocol = {0}'.format(s.get("frp_protocol", "tcp")),
+            'protocol = {0}'.format(s.get("frp_protocol", "quic")),
             'token = {0}'.format(s.get("frp_token", "")),
             'tls_enable = true',
+            'pool_count = 50',
+            'tcp_mux = true',
             'heartbeat_interval = 10',
             'heartbeat_timeout = 30',
             'login_fail_exit = false',
+            'log_level = info',
             '',
             '[xray_ws]',
             'type = tcp',
             'local_ip = 127.0.0.1',
             'local_port = {0}'.format(s.get("vless_port", 4433)),
             'remote_port = {0}'.format(s.get("remote_xray_port", 8080)),
+            'use_compression = false',
             '',
             '[dashboard_tcp]',
             'type = tcp',
             'local_ip = 127.0.0.1',
             'local_port = {0}'.format(s.get("management_port", 3080)),
             'remote_port = {0}'.format(s.get("remote_dashboard_port", 8880)),
+            'use_compression = false',
             ''
         ]
 
@@ -138,12 +143,14 @@ class ServerManager:
             'local_ip = 127.0.0.1',
             'local_port = {0}'.format(s.get("http_proxy_port", 1080)),
             'remote_port = {0}'.format(s.get("remote_http_port", 1081)),
+            'use_compression = false',
             '',
             '[socks_tunnel]',
             'type = tcp',
             'local_ip = 127.0.0.1',
             'local_port = {0}'.format(s.get("socks_proxy_port", 1082)),
             'remote_port = {0}'.format(s.get("remote_socks_port", 1083)),
+            'use_compression = false',
             ''
         ])
 
@@ -280,12 +287,15 @@ class ServerManager:
             self.inbound = inbounds[0]
             if not self.inbound.get("tag"):
                 self.inbound["tag"] = "vless_in"
+            
+            # Force local binding for security and to avoid Windows permission issues
+            self.inbound["listen"] = "127.0.0.1"
                 
-            # Force maxEarlyData on existing configs
+            # Do not force maxEarlyData to avoid MTU and handshake drops on strict networks
             ss = self.inbound.get("streamSettings", {})
             wss = ss.get("wsSettings", {})
-            wss["maxEarlyData"] = 2048
-            wss["earlyDataHeaderName"] = "Sec-WebSocket-Protocol"
+            if "maxEarlyData" in wss: del wss["maxEarlyData"]
+            if "earlyDataHeaderName" in wss: del wss["earlyDataHeaderName"]
             ss["wsSettings"] = wss
             self.inbound["streamSettings"] = ss
         else:
@@ -296,16 +306,18 @@ class ServerManager:
         s = self.settings
         return {
             "port": s.get("vless_port", 4433), 
-            "listen": "0.0.0.0", 
+            "listen": "127.0.0.1", 
             "protocol": "vless",
             "settings": {"clients": [], "decryption": "none"},
             "streamSettings": {
                 "network": "ws", 
                 "wsSettings": {
-                    "path": s.get("vless_ws_path", "/tunnel"),
-                    "maxEarlyData": 2048,
-                    "earlyDataHeaderName": "Sec-WebSocket-Protocol"
+                    "path": s.get("vless_ws_path", "/tunnel")
                 }
+            },
+            "sniffing": {
+                "enabled": True,
+                "destOverride": ["http", "tls", "quic"]
             }
         }
 
@@ -351,6 +363,8 @@ class ServerManager:
 
     def rebuild_xray_config(self):
         with self.user_lock:
+            # Refresh users from disk to ensure we have latest data/UUIDs
+            self.users = self.load_users()
             s = self.settings
             outbounds = []
             rules = []
@@ -362,33 +376,32 @@ class ServerManager:
                 else:
                     out_cfg = server["outbound"].copy()
                     out_cfg["tag"] = tag
+                    # Removed MUX optimization as it breaks compatibility with many servers/protocols (especially Shadowsocks)
                     outbounds.append(out_cfg)
 
-                user_emails = [ self._get_user_email(u_["user_id"], i) for u_ in self.users if u_.get("enabled", True) ]
-                if user_emails:
-                    rules.append({"type": "field", "user": user_emails, "outboundTag": tag})
+                # Collect rules for this server
+                # High-Performance Routing Optimization: 
+                # Match by server domain suffix (@s{i}.u) using regex.
+                # This is O(1) per server regardless of the number of users.
+                rules.append({
+                    "type": "field", 
+                    "user": ["regexp:.*@s{0}\\.u$".format(i)], 
+                    "outboundTag": tag
+                })
 
-            fastest_idx = 0
-            min_ping = 99999
-            for i_str, p in self.last_pings.items():
-                try:
-                    p_val = float(p)
-                    if 0 < p_val < min_ping:
-                        min_ping = p_val
-                        fastest_idx = int(i_str)
-                except: pass
-            
+            # System/Internal Routing
+            fastest_idx = self._get_fastest_server_index()
+            # Inbound tags for HTTP/SOCKS proxies go to the fastest server
             rules.insert(0, {"type": "field", "inboundTag": ["h_in", "s_in"], "outboundTag": "outbound_s{0}".format(fastest_idx)})
             rules.insert(0, {"type": "field", "inboundTag": ["api_in"], "outboundTag": "api"})
 
+            # Critical bypasses: Direct rules for VPS IP (prevents loops) and IR domains
             vps_ip = s.get("vps_ip", "").strip()
             if vps_ip:
                 rules.insert(0, {"type": "field", "outboundTag": "direct", "ip": [vps_ip]})
-
             rules.insert(1, {"type": "field", "outboundTag": "direct", "domain": ["regexp:\\.ir$"], "ip": ["geoip:ir"]})
-            for i in range(len(self.servers)):
-                rules.insert(0, {"type": "field", "user": ["t{0}".format(i)], "outboundTag": "outbound_s{0}".format(i)})
 
+            # Default fallback for unhandled traffic
             rules.append({"type": "field", "outboundTag": "direct", "port": "0-65535"})
             outbounds.append({"tag": "direct", "protocol": "freedom", "settings": {}})
 
@@ -396,6 +409,13 @@ class ServerManager:
                 "log": {"loglevel": "error"}, "stats": {},
                 "api": {"tag": "api", "services": ["StatsService"]},
                 "policy": {"levels": {"0": {"statsUserUplink": True, "statsUserDownlink": True}}},
+                "dns": {
+                    "servers": [
+                        "1.1.1.1",
+                        "8.8.8.8",
+                        "localhost"
+                    ]
+                },
                 "inbounds": [
                     self.inbound,
                     {"tag": "h_in", "port": s.get("http_proxy_port", 1080), "listen": "127.0.0.1", "protocol": "http", "settings": {"auth": "noauth", "udp": True}},
@@ -615,7 +635,7 @@ class ServerManager:
             "ping_progress": getattr(self, "ping_progress", 0)
         }
 
-    def ping_server(self, index):
+    def ping_server(self, index, samples=1):
         if index < 0 or index >= len(self.servers) or self.tunnel_status != "Connected":
             self.last_pings[str(index)] = -1
             return -1
@@ -627,22 +647,21 @@ class ServerManager:
             pings = []
             opener = ur.build_opener(ur.ProxyHandler({'http': proxy_url}))
             
-            # Take 3 samples to check stability
-            for _ in range(3):
+            # Take N samples to check stability (default 1 for speed)
+            for _ in range(samples):
                 start = time.time()
                 try:
                     with opener.open("https://www.gstatic.com/generate_204", timeout=self.ping_timeout_ms / 1000.0) as resp:
                         if resp.getcode() in [200, 204]:
                             pings.append(int((time.time() - start) * 1000))
                         else:
-                            break # Bad response
+                            break 
                 except Exception:
-                    break # Timeout or connection error
-                time.sleep(0.5) # Short delay between samples
+                    break 
+                if samples > 1: time.sleep(0.5) 
                 
-            # Only consider the server healthy if all 3 pings succeeded
-            if len(pings) == 3:
-                # Use the worst ping of the 3 to penalize unstable servers
+            if len(pings) == samples:
+                # Use the worst ping of the samples to penalize unstable servers
                 ms = max(pings)
                 self.last_pings[str(index)] = ms
                 return ms
@@ -651,12 +670,26 @@ class ServerManager:
         self.last_pings[str(index)] = -1
         return -1
 
-    def ping_all_servers(self):
+    def _get_fastest_server_index(self):
+        fastest_idx = 0
+        min_ping = 99999
+        for i_str, p in self.last_pings.items():
+            try:
+                p_val = float(p)
+                if 0 < p_val < min_ping:
+                    min_ping = p_val
+                    fastest_idx = int(i_str)
+            except: pass
+        return fastest_idx
+
+    def ping_all_servers(self, samples=1):
         def monitor():
             if getattr(self, "is_pinging", False): return
             self.is_pinging = True
             self.ping_progress = 0
             u.log("INFO", "Mass ping cycle starting (batched)...", component="CORE")
+            
+            old_fastest = self._get_fastest_server_index()
             
             # To avoid saturating the local network and artificially inflating ping times,
             # we limit the number of concurrent pings.
@@ -667,18 +700,24 @@ class ServerManager:
             completed = 0
             
             if total > 0:
-                with concurrent.futures.ThreadPoolExecutor(max_workers=20) as pinger:
-                    future_to_idx = {pinger.submit(self.ping_server, i): i for i in servers_to_ping}
+                with concurrent.futures.ThreadPoolExecutor(max_workers=5) as pinger:
+                    future_to_idx = {pinger.submit(self.ping_server, i, samples=samples): i for i in servers_to_ping}
                     for future in concurrent.futures.as_completed(future_to_idx):
                         try: future.result()
                         except: pass
                         completed += 1
                         self.ping_progress = int((completed / total) * 100)
                 
-            u.log("OK", "Mass ping cycle finished. Updating routing...", component="CORE")
+            new_fastest = self._get_fastest_server_index()
             self.is_pinging = False
             self.ping_progress = 100
-            self.debounced_rebuild()
+            
+            if old_fastest != new_fastest:
+                u.log("OK", "Fastest server changed ({0}->{1}). Updating routing...".format(old_fastest, new_fastest), component="CORE")
+                self.debounced_rebuild()
+            else:
+                u.log("OK", "Mass ping finished. No routing change needed.", component="CORE")
+        
         threading.Thread(target=monitor, name="MassPing").start()
         return True
 
@@ -691,13 +730,15 @@ class ServerManager:
                     self.ping_progress = 0
                     u.log("INFO", "Auto-ping cycle starting...", component="CORE")
                     
+                    old_fastest = self._get_fastest_server_index()
+                    
                     servers_to_ping = list(range(1, len(self.servers)))
                     total = len(servers_to_ping)
                     completed = 0
                     
                     if total > 0:
-                        with concurrent.futures.ThreadPoolExecutor(max_workers=20) as pinger:
-                            future_to_idx = {pinger.submit(self.ping_server, i): i for i in servers_to_ping}
+                        with concurrent.futures.ThreadPoolExecutor(max_workers=5) as pinger:
+                            future_to_idx = {pinger.submit(self.ping_server, i, samples=1): i for i in servers_to_ping}
                             for future in concurrent.futures.as_completed(future_to_idx):
                                 try: future.result()
                                 except: pass
@@ -707,8 +748,13 @@ class ServerManager:
                     self.is_pinging = False
                     self.ping_progress = 100
                     self.save_state() 
-                    self.debounced_rebuild()
-                    u.log("OK", "Auto-ping cycle finished.", component="CORE")
+                    
+                    new_fastest = self._get_fastest_server_index()
+                    if old_fastest != new_fastest:
+                        u.log("OK", "Auto-ping: routing changed. Updating Xray...", component="CORE")
+                        self.debounced_rebuild()
+                    else:
+                        u.log("OK", "Auto-ping finished. No routing change.", component="CORE")
                 except Exception as e:
                     self.is_pinging = False
                     u.log("ERROR", "Auto-ping loop error: {0}".format(e))
@@ -803,6 +849,7 @@ class ServerManager:
             res = subprocess.check_output(cmd, stderr=subprocess.STDOUT).decode("utf-8")
             stats = json.loads(res).get("stat", [])
             with self.user_lock:
+                has_changes = False
                 # Pre-calculate sanitized IDs for all users to speed up lookup
                 user_map = {}
                 for u_ in self.users:
@@ -879,7 +926,7 @@ class ServerManager:
         safe_path = "".join([quote(c) if c != "/" else c for c in path])
         
         base = "vless://{0}@{1}:{2}".format(uuid, host, port)
-        params = ["type=ws", "encryption=none", "path={0}".format(safe_path), "ed=2048"]
+        params = ["type=ws", "encryption=none", "path={0}".format(safe_path)]
         if security == "tls":
             params.append("security=tls")
             if sni: params.append("sni={0}".format(sni))
@@ -1094,8 +1141,10 @@ class ServerManager:
                 
                 frps_cfg = [
                     'bindPort = {0}'.format(s["frp_server_port"]),
+                    'quicBindPort = {0}'.format(s["frp_server_port"]),
                     'auth.method = "token"', 'auth.token = "{0}"'.format(frp_token),
-                    'transport.tls.force = true'
+                    'transport.tls.force = true',
+                    'transport.maxPoolCount = 100'
                 ]
                 if s.get("dashboard_domain"):
                     frps_cfg.append('vhostHTTPSPort = 443')

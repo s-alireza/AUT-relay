@@ -7,8 +7,15 @@ import threading
 from utils import log, read_json_file, html_escape
 try:
     from http.server import HTTPServer, BaseHTTPRequestHandler
+    try:
+        from http.server import ThreadingHTTPServer
+    except ImportError:
+        import socketserver
+        class ThreadingHTTPServer(socketserver.ThreadingMixIn, HTTPServer): pass
 except ImportError:
     from BaseHTTPServer import HTTPServer, BaseHTTPRequestHandler
+    import SocketServer
+    class ThreadingHTTPServer(SocketServer.ThreadingMixIn, HTTPServer): pass
 
 class BaseHandler(BaseHTTPRequestHandler):
     def log_message(self, fmt, *args): pass
@@ -44,11 +51,21 @@ class BaseHandler(BaseHTTPRequestHandler):
         self._send_json({"error": "Unauthorized"}, 401); return False
 
 def start_server(handler_class, mgr, port, name="Web Server"):
-    server = HTTPServer(("0.0.0.0", port), handler_class)
-    server.mgr = mgr
-    log("OK", "{0} started on port {1}".format(name, port))
-    
-    t = threading.Thread(target=server.serve_forever)
-    t.daemon = True
-    t.start()
-    return server
+    try:
+        # On Windows, 127.0.0.1 is sometimes more reliable than 0.0.0.0 for internal tools,
+        # but the dashboard needs to be accessible via FRP, which points to 127.0.0.1.
+        # However, many users report 10013 is solved by binding to 127.0.0.1 if 0.0.0.0 is restricted.
+        server = ThreadingHTTPServer(("127.0.0.1", port), handler_class)
+        server.mgr = mgr
+        log("OK", "{0} started on 127.0.0.1:{1}".format(name, port))
+        
+        t = threading.Thread(target=server.serve_forever, name=name)
+        t.daemon = True
+        t.start()
+        return server
+    except Exception as e:
+        log("ERROR", "Failed to start {0} on port {1}: {2}".format(name, port, e))
+        # If it's a critical port like the dashboard, we might want to try 127.0.0.1 
+        # specifically if 0.0.0.0 failed, but here we already switched to 127.0.0.1
+        # as a safer default for local relaying.
+        return None

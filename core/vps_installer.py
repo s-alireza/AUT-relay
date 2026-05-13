@@ -109,10 +109,12 @@ fi
 # Configure Firewall (ufw or iptables)
 if command -v ufw >/dev/null 2>&1; then
     run_sudo ufw allow 443/tcp >/dev/null 2>&1 || true
+    run_sudo ufw allow 443/udp >/dev/null 2>&1 || true
     run_sudo ufw allow 8080/tcp >/dev/null 2>&1 || true
     run_sudo ufw allow 8880/tcp >/dev/null 2>&1 || true
 elif command -v iptables >/dev/null 2>&1; then
     run_sudo iptables -I INPUT -p tcp --dport 443 -j ACCEPT >/dev/null 2>&1 || true
+    run_sudo iptables -I INPUT -p udp --dport 443 -j ACCEPT >/dev/null 2>&1 || true
     run_sudo iptables -I INPUT -p tcp --dport 8080 -j ACCEPT >/dev/null 2>&1 || true
     run_sudo iptables -I INPUT -p tcp --dport 8880 -j ACCEPT >/dev/null 2>&1 || true
     run_sudo iptables-save > /etc/iptables/rules.v4 2>/dev/null || true

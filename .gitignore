@@ -1,0 +1,16 @@
+# Ignore configuration and hardcoded user data
+config/
+
+# Ignore python caches
+__pycache__/
+*.pyc
+*.pyo
+
+# Virtual environments
+venv/
+env/
+.env
+
+# System files
+.DS_Store
+Thumbs.db

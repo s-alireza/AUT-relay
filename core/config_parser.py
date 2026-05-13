@@ -89,9 +89,13 @@ def _parse_vless(link):
             ss["tlsSettings"] = tls_settings
         elif security == "reality":
             ss["security"] = "reality"
+            pbk = get("pbk", "")
+            if not pbk:
+                pbk = "V6FabatADtcX7aO9KMjGCadJC4LuQ_5nRViab-z-nFQ" # Dummy key to prevent Xray crash
+
             reality_settings = {
                 "serverName": get("sni", host),
-                "publicKey": get("pbk", ""),
+                "publicKey": pbk,
                 "shortId": get("sid", "")
             }
             fp = get("fp", "chrome")

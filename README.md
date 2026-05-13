@@ -73,7 +73,18 @@ After completing the web wizard, you will receive a block of configuration for y
    sudo systemctl daemon-reload && sudo systemctl enable frps && sudo systemctl restart frps
    ```
 
-### Step 3: Connect & Manage
+### Step 3: Speed Optimization (BBR) [Recommended]
+
+For maximum connection speed and lower latency, it is highly recommended to enable **BBR** (Bottleneck Bandwidth and Round-trip time) on your VPS. Run these commands on your VPS:
+
+```bash
+echo "net.core.default_qdisc=fq" | sudo tee -a /etc/sysctl.conf
+echo "net.ipv4.tcp_congestion_control=bbr" | sudo tee -a /etc/sysctl.conf
+sudo sysctl -p
+```
+Verify it is active by running: `sysctl net.ipv4.tcp_congestion_control`. It should output `bbr`.
+
+### Step 4: Connect & Manage
 
 1. Install a **VLESS-compatible app** on your phone/device (e.g., **v2rayNG**, **v2rayN**, **Shadowrocket**, **Karing**).
 2. In the Dashboard's **Users** tab, copy the subscription link or scan the QR code.
@@ -101,6 +112,10 @@ The core proxy and load balancing mechanisms are highly adaptable. **Feel free t
 ## 🛠 Features
 
 The system features a **Premium Management Console** accessible at `http://127.0.0.1:3080` (or remotely via `http://YOUR_VPS_IP:8880`).
+
+### ⚡ High-Concurrency & Network Resilience
+* **QUIC Transport (UDP):** The main tunnel operates over QUIC, completely bypassing TCP meltdowns on lossy networks and providing extreme resilience against ISP throttling.
+* **Asynchronous DNS & Multi-Threading:** The bridge handles domain resolution asynchronously and features a fully multi-threaded API capable of scaling to 20+ concurrent users seamlessly.
 
 ### 📊 Overview & Telemetry
 
