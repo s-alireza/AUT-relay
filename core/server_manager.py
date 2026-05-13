@@ -381,11 +381,17 @@ class ServerManager:
             vps_ip = s.get("vps_ip", "").strip()
             if vps_ip:
                 rules.insert(0, {"type": "field", "outboundTag": "direct", "ip": [vps_ip]})
-            rules.insert(1, {"type": "field", "outboundTag": "direct", "domain": ["regexp:\\.ir$"], "ip": ["geoip:ir"]})
+            
+            # Block ads and malware using a blackhole
+            rules.insert(1, {"type": "field", "outboundTag": "block", "domain": ["geosite:category-ads-all"]})
+            
+            # Route Iranian traffic and specific requested domains (youtube, bale.ai) directly
+            rules.insert(2, {"type": "field", "outboundTag": "direct", "domain": ["regexp:\\.ir$", "domain:bale.ai", "geosite:youtube"], "ip": ["geoip:ir"]})
 
             # Default fallback for unhandled traffic
             rules.append({"type": "field", "outboundTag": "direct", "port": "0-65535"})
             outbounds.append({"tag": "direct", "protocol": "freedom", "settings": {}})
+            outbounds.append({"tag": "block", "protocol": "blackhole", "settings": {}})
 
             xray_cfg = {
                 "log": {"loglevel": "error"}, "stats": {},
