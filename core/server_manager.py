@@ -399,6 +399,7 @@ class ServerManager:
                 "policy": {"levels": {"0": {"statsUserUplink": True, "statsUserDownlink": True}}},
                 "dns": {
                     "servers": [
+                        {"address": "178.22.122.100", "domains": ["geosite:ir", "regexp:\\.ir$"]},
                         "1.1.1.1",
                         "8.8.8.8",
                         "localhost"
