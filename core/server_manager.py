@@ -688,7 +688,8 @@ class ServerManager:
             completed = 0
             
             if total > 0:
-                with concurrent.futures.ThreadPoolExecutor(max_workers=5) as pinger:
+                max_concurrent_pings = min(10, max(3, total // 4))
+                with concurrent.futures.ThreadPoolExecutor(max_workers=max_concurrent_pings) as pinger:
                     future_to_idx = {pinger.submit(self.ping_server, i, samples=samples): i for i in servers_to_ping}
                     for future in concurrent.futures.as_completed(future_to_idx):
                         try: future.result()
@@ -725,7 +726,8 @@ class ServerManager:
                     completed = 0
                     
                     if total > 0:
-                        with concurrent.futures.ThreadPoolExecutor(max_workers=5) as pinger:
+                        max_concurrent_pings = min(10, max(3, total // 4))
+                        with concurrent.futures.ThreadPoolExecutor(max_workers=max_concurrent_pings) as pinger:
                             future_to_idx = {pinger.submit(self.ping_server, i, samples=1): i for i in servers_to_ping}
                             for future in concurrent.futures.as_completed(future_to_idx):
                                 try: future.result()
