@@ -173,14 +173,26 @@ class AccountRotator:
         self.accounts, self.thresholds = accounts, thresholds
         self.current_index, self.current_phase = 0, self.PHASE_DAILY
         self.known_usage = {}
+        self.failed_logins = {}
+
+    def mark_login_failure(self):
+        self.failed_logins[self.current_index] = self.failed_logins.get(self.current_index, 0) + 1
+
+    def clear_login_failure(self):
+        if self.current_index in self.failed_logins:
+            del self.failed_logins[self.current_index]
 
     @property
-    def current_account(self): return self.accounts[self.current_index]
+    def current_account(self):
+        if not self.accounts: return None
+        if self.current_index >= len(self.accounts): self.current_index = 0
+        return self.accounts[self.current_index]
 
     def _t(self):
         return { self.PHASE_DAILY: self.thresholds.get("daily_gb", 2.8), self.PHASE_WEEKLY: self.thresholds.get("weekly_gb", 11.5), self.PHASE_MONTHLY: self.thresholds.get("monthly_gb", 29.0), self.PHASE_FREE: self.thresholds.get("free_gb", 115.0) }
 
-    def _eligible(self, usage, phase):
+    def _eligible(self, usage, phase, index):
+        if self.failed_logins.get(index, 0) >= 3: return False
         if usage is None: return True
         t = self._t()
         daily, weekly, monthly, free = usage.get("daily_used") or 0, usage.get("weekly_used") or 0, usage.get("monthly_used") or 0, usage.get("free_used") or 0
@@ -202,11 +214,11 @@ class AccountRotator:
         old_usage = self.known_usage.get(self.current_index)
         self.known_usage[self.current_index] = usage
 
-        if not self._eligible(usage, self.current_phase): return True
+        if not self._eligible(usage, self.current_phase, self.current_index): return True
         for phase in self.PHASE_ORDER:
             if phase == self.current_phase: break
             for i in range(len(self.accounts)):
-                if i != self.current_index and self._eligible(self.known_usage.get(i), phase): return True
+                if i != self.current_index and self._eligible(self.known_usage.get(i), phase, i): return True
 
         if len(self.accounts) > 1:
             pk = "{0}_used".format(self.current_phase)
@@ -219,28 +231,29 @@ class AccountRotator:
     def rotate(self, prefer_different=False):
         phase_keys = { self.PHASE_DAILY: "daily_used", self.PHASE_WEEKLY: "weekly_used", self.PHASE_MONTHLY: "monthly_used", self.PHASE_FREE: "free_used" }
         for phase in self.PHASE_ORDER:
-            eligible = [i for i in range(len(self.accounts)) if self._eligible(self.known_usage.get(i), phase)]
+            eligible = [i for i in range(len(self.accounts)) if self._eligible(self.known_usage.get(i), phase, i)]
+            if prefer_different:
+                eligible = [i for i in eligible if i != self.current_index]
             if not eligible: continue
             
             best_idx, min_usage = None, float("inf")
             for i in eligible:
                 usage = self.known_usage.get(i)
                 used = (usage.get(phase_keys[phase]) or 0) if usage else 0
-                
-                # Apply bias: prefer current account slightly to avoid unnecessary logout/login
-                # UNLESS prefer_different is True, in which case we penalize the current account
-                bias = 0
-                if i == self.current_index:
-                    bias = 0.5 if prefer_different else -0.1
-                
-                eff = used + bias
-                if eff < min_usage: min_usage, best_idx = eff, i
+                if used < min_usage: min_usage, best_idx = used, i
 
             if best_idx is not None:
                 is_same = (best_idx == self.current_index)
                 self.current_index, self.current_phase = best_idx, phase
                 if not is_same: u.log("OK", "AUT Switched (Load Balance): {0} ({1})".format(self.current_account["username"], phase), component="AUTH")
                 return self.current_account
+                
+        if prefer_different and len(self.accounts) > 1:
+            self.current_index = (self.current_index + 1) % len(self.accounts)
+            self.current_phase = self.PHASE_DAILY
+            u.log("WARN", "All accounts exhausted or blacklisted. Force rotating to next: {0}".format(self.current_account["username"]), component="AUTH")
+            return self.current_account
+            
         return None
 
     def get_status_line(self, usage):
@@ -283,6 +296,7 @@ def main():
         for attempt in range(3):
             try:
                 if portal.login(acc["username"], acc["password"]):
+                    rotator.clear_login_failure()
                     usage = portal.get_usage()
                     if usage:
                         rotator.known_usage[rotator.current_index] = usage
@@ -293,6 +307,7 @@ def main():
                         _push_status(); return True
                 time.sleep(2)
             except: time.sleep(2)
+        rotator.mark_login_failure()
         _push_status(); return False
 
     # 1. ACHIEVE INTERNET
@@ -318,46 +333,55 @@ def main():
     # 3. MONITOR LOOP
     try:
         while True:
-            forced = mgr.consume_force_switch()
             try:
-                fresh = load_config()
-                accounts = fresh["accounts"]
-                rotator.accounts = accounts
+                forced = mgr.consume_force_switch()
+                try:
+                    fresh = load_config()
+                    accounts = fresh["accounts"]
+                    rotator.accounts = accounts
+                    
+                    # Dynamically update thresholds from manager settings
+                    current_thresholds = mgr.settings.get("thresholds")
+                    if current_thresholds:
+                        rotator.thresholds = current_thresholds
+                except: pass
+
+                if 0 <= forced < len(accounts):
+                    u.log("OK", "AUT Switched (Manual): {0}".format(accounts[forced]["username"]), component="AUTH")
+                    portal.logout(); time.sleep(1)
+                    rotator.current_index, rotator.current_phase = forced, rotator.PHASE_DAILY
+                    _login_and_fetch(rotator.current_account)
+
+                _push_status()
+                if accounts:
+                    usage = None
+                    for _ in range(3):
+                        try:
+                            usage = portal.get_usage()
+                            if usage: break
+                        except: pass
+                        time.sleep(2)
+
+                    if usage:
+                        rotator.known_usage[rotator.current_index] = usage
+                        u.log("USAGE", "{0} | {1}".format(rotator.current_account["username"], rotator.get_status_line(usage)), component="AUTH")
+                        _push_status()
+                        if rotator.should_rotate(usage):
+                            next_a = rotator.rotate(prefer_different=True)
+                            if next_a: portal.logout(); time.sleep(3); _login_and_fetch(next_a)
+                    else:
+                        if not portal.login(rotator.current_account["username"], rotator.current_account["password"]):
+                            rotator.mark_login_failure()
+                            u.log("WARN", "Login failed. Session dead or bad credentials. Rotating...", component="AUTH")
+                            next_a = rotator.rotate(prefer_different=True)
+                            if next_a: portal.logout(); time.sleep(3); _login_and_fetch(next_a)
+                        else:
+                            rotator.clear_login_failure()
                 
-                # Dynamically update thresholds from manager settings
-                current_thresholds = mgr.settings.get("thresholds")
-                if current_thresholds:
-                    rotator.thresholds = current_thresholds
-            except: pass
-
-            if 0 <= forced < len(accounts):
-                u.log("OK", "AUT Switched (Manual): {0}".format(accounts[forced]["username"]), component="AUTH")
-                portal.logout(); time.sleep(1)
-                rotator.current_index, rotator.current_phase = forced, rotator.PHASE_DAILY
-                _login_and_fetch(rotator.current_account)
-
-            _push_status()
-            if accounts:
-                usage = None
-                for _ in range(3):
-                    try:
-                        usage = portal.get_usage()
-                        if usage: break
-                    except: pass
-                    time.sleep(2)
-
-                if usage:
-                    rotator.known_usage[rotator.current_index] = usage
-                    u.log("USAGE", "{0} | {1}".format(rotator.current_account["username"], rotator.get_status_line(usage)), component="AUTH")
-                    _push_status()
-                    if rotator.should_rotate(usage):
-                        next_a = rotator.rotate(prefer_different=True)
-                        if next_a: portal.logout(); time.sleep(3); _login_and_fetch(next_a)
-                else:
-                    if not portal.login(rotator.current_account["username"], rotator.current_account["password"]):
-                        u.log("WARN", "Session dead. Re-logging...", component="AUTH")
-            
-            mgr.wait_for_interval(interval)
+                mgr.wait_for_interval(interval)
+            except Exception as e:
+                u.log("ERROR", "Unexpected error in monitor loop: {0}".format(e), component="CORE")
+                time.sleep(5)
     except KeyboardInterrupt: u.log("INFO", "Shutting down...", component="CORE")
     finally:
         proc_mgr.stop_all()

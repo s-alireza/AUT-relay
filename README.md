@@ -140,6 +140,12 @@ Create individual users for your friends or roommates:
 * Generate individual VLESS subscription links and QR codes.
 * Accurate quota tracking synced directly from the backend to the dashboard.
 
+### 🔌 Power Cut Resilience & Auto-Start
+
+The system is designed to survive building power outages seamlessly. 
+1. **Hardware Configuration:** Enter your motherboard's BIOS/UEFI and set **"Restore on AC Power Loss"** to **Power On**.
+2. **Software Service:** Right-click `Install_AutoStart.bat` and select **"Run as Administrator"**. This creates a hidden Windows Scheduled Task that launches the bridge in the background (as `SYSTEM`) the moment the PC boots, without requiring a user to log in.
+
 ### ⚙️ System Control Panel
 
 * **Connectivity:** Manage your CDN/Dashboard Domain, VPS IP, and Port assignments.

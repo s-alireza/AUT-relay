@@ -392,6 +392,7 @@ class ServerManager:
             rules.append({"type": "field", "outboundTag": "direct", "port": "0-65535"})
             outbounds.append({"tag": "direct", "protocol": "freedom", "settings": {}})
             outbounds.append({"tag": "block", "protocol": "blackhole", "settings": {}})
+            outbounds.append({"tag": "api", "protocol": "freedom", "settings": {}})
 
             xray_cfg = {
                 "log": {"loglevel": "error"}, "stats": {},
@@ -518,7 +519,9 @@ class ServerManager:
 
             # Use ThreadPoolExecutor for geo-lookups
             futures = [self.executor.submit(process_server, i, ip) for i, ip in servers_to_check]
-            for f in futures: f.result()
+            for f in futures:
+                try: f.result()
+                except Exception as e: u.log("ERROR", "Geo-lookup task failed: {0}".format(e))
 
             if changed_flags["changed"]:
                 self.save_state()
@@ -529,6 +532,8 @@ class ServerManager:
             if failures > 0:
                 u.log("WARN", "Geo-lookup: {0} nodes pending. Retrying in 5m...".format(failures))
                 threading.Timer(300.0, self.resolve_all_geos).start()
+        except Exception as e:
+            u.log("ERROR", "Geo-lookup worker encountered a fatal error: {0}".format(e))
         finally:
             with self._geo_lock: self._geo_worker_running = False
 
@@ -836,9 +841,12 @@ class ServerManager:
         xray_bin = os.path.join(self.BIN_DIR, "xray.exe")
         if not os.path.exists(xray_bin): return
         try:
-            cmd = [xray_bin, "api", "statsquery", "--server=127.0.0.1:10085"]
-            res = subprocess.check_output(cmd, stderr=subprocess.STDOUT).decode("utf-8")
-            stats = json.loads(res).get("stat", [])
+            # Explicitly use shell=True and quote the path for Windows 7 stability with spaces/apostrophes
+            cmd = '"{0}" api statsquery --server=127.0.0.1:10085'.format(xray_bin)
+            res = subprocess.check_output(cmd, shell=True, stderr=subprocess.STDOUT).decode("utf-8", "ignore")
+            
+            stats_data = json.loads(res)
+            stats = stats_data.get("stat", [])
             with self.user_lock:
                 has_changes = False
                 # Pre-calculate sanitized IDs for all users to speed up lookup
@@ -867,7 +875,10 @@ class ServerManager:
                             target_user["usage_bytes"] = target_user.get("usage_bytes", 0) + diff
                 self.save_users()
         except Exception as e:
-            u.log("DEBUG", "Stats refresh failed: {0}".format(e), component="XRAY")
+            msg = str(e)
+            if hasattr(e, 'output') and e.output:
+                msg += " | Output: " + e.output.decode("utf-8", "ignore")[:200]
+            u.log("WARN", "Stats refresh failed: {0}".format(msg), component="XRAY")
 
     def _enforce_user_limits(self):
         changed = False

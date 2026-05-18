@@ -59,9 +59,8 @@ def read_json_file(path, default=None):
         return default if default is not None else {}
 
 def write_json_file(path, payload):
-    """Simple JSON write."""
-    with open(path, "w", encoding="utf-8") as f:
-        json.dump(payload, f, indent=2, ensure_ascii=False)
+    """Simple JSON write, now redirected to atomic write to prevent corruption during power loss."""
+    return write_json_atomic(path, payload)
 
 def write_json_atomic(path, data):
     """Write JSON atomically using a temporary file to prevent corruption."""
@@ -135,7 +134,11 @@ def log(level, msg, color="", component=None):
         console_line = "[{0}] {1}{2}{3}  {4}{5}".format(ts, color, level_str, C_RST, comp_str, msg)
     else:
         console_line = "[{0}] {1}  {2}{3}".format(ts, level_str, comp_str, msg)
-    print(console_line)
+    
+    try:
+        print(console_line)
+    except UnicodeEncodeError:
+        print(console_line.encode('ascii', 'replace').decode('ascii'))
     
     # Memory Buffer (for web dashboard)
     # We strip ANSI colors if any were manually passed in msg
